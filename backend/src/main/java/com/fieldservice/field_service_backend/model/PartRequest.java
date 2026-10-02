@@ -44,9 +44,14 @@ public class PartRequest {
     @Column(nullable = false, length = 30)
     private PartRequestStatus status = PartRequestStatus.PENDING;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "requested_by_technician_id")
-    private Technician requestedBy;
+    @Column(name = "requested_by_technician_id")
+    private Long requestedByTechnicianId;
+
+    @Column(name = "technician_name", length = 100)
+    private String technicianName;
+
+    @Column(name = "technician_employee_code", length = 50)
+    private String technicianEmployeeCode;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "technician_user_id", nullable = false)
@@ -84,7 +89,8 @@ public class PartRequest {
 
     public PartRequest(String requestNumber, Part part, String partName, String category, String sku,
                        Integer quantity, String unit, String reason, Priority priority,
-                       Technician requestedBy, User technicianUser, WorkOrder workOrder) {
+                       Long requestedByTechnicianId, String technicianName, String technicianEmployeeCode,
+                       User technicianUser, WorkOrder workOrder) {
         this.requestNumber = requestNumber;
         this.part = part;
         this.partName = partName;
@@ -94,7 +100,9 @@ public class PartRequest {
         this.unit = unit != null ? unit : "pcs";
         this.reason = reason;
         this.priority = priority != null ? priority : Priority.MEDIUM;
-        this.requestedBy = requestedBy;
+        this.requestedByTechnicianId = requestedByTechnicianId;
+        this.technicianName = technicianName;
+        this.technicianEmployeeCode = technicianEmployeeCode;
         this.technicianUser = technicianUser;
         this.workOrder = workOrder;
         this.status = PartRequestStatus.PENDING;
@@ -147,8 +155,14 @@ public class PartRequest {
     public PartRequestStatus getStatus() { return status; }
     public void setStatus(PartRequestStatus status) { this.status = status; }
 
-    public Technician getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(Technician requestedBy) { this.requestedBy = requestedBy; }
+    public Long getRequestedByTechnicianId() { return requestedByTechnicianId; }
+    public void setRequestedByTechnicianId(Long requestedByTechnicianId) { this.requestedByTechnicianId = requestedByTechnicianId; }
+
+    public String getTechnicianName() { return technicianName; }
+    public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
+
+    public String getTechnicianEmployeeCode() { return technicianEmployeeCode; }
+    public void setTechnicianEmployeeCode(String technicianEmployeeCode) { this.technicianEmployeeCode = technicianEmployeeCode; }
 
     public User getTechnicianUser() { return technicianUser; }
     public void setTechnicianUser(User technicianUser) { this.technicianUser = technicianUser; }

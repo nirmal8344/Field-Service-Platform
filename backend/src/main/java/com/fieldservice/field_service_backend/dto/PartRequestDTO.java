@@ -65,16 +65,13 @@ public class PartRequestDTO {
             }
         } catch (Exception ignored) {}
 
-        try {
-            if (pr.getRequestedBy() != null) {
-                this.requestedByTechnicianId = pr.getRequestedBy().getId();
-                this.technicianEmployeeCode = pr.getRequestedBy().getEmployeeCode();
-            }
-        } catch (Exception ignored) {}
+        this.requestedByTechnicianId = pr.getRequestedByTechnicianId();
+        this.technicianName = pr.getTechnicianName();
+        this.technicianEmployeeCode = pr.getTechnicianEmployeeCode();
 
         try {
             if (pr.getTechnicianUser() != null) {
-                this.technicianName = pr.getTechnicianUser().getFullName();
+                if (this.technicianName == null) this.technicianName = pr.getTechnicianUser().getFullName();
                 this.technicianEmail = pr.getTechnicianUser().getEmail();
                 this.technicianPhone = pr.getTechnicianUser().getPhoneNumber();
             }

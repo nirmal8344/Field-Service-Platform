@@ -92,6 +92,10 @@ public class PartRequestService {
 
         String reqNum = "PR-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-" + (1000 + new Random().nextInt(9000));
 
+        Long techId = (technician != null) ? technician.getId() : null;
+        String techCode = (technician != null) ? technician.getEmployeeCode() : null;
+        String techName = (techUser.getFullName() != null) ? techUser.getFullName() : techUser.getEmail();
+
         PartRequest pr = new PartRequest(
                 reqNum,
                 part,
@@ -102,7 +106,9 @@ public class PartRequestService {
                 unit,
                 dto.getReason(),
                 dto.getPriority(),
-                technician,
+                techId,
+                techName,
+                techCode,
                 techUser,
                 workOrder
         );
