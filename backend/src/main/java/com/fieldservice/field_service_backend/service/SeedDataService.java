@@ -73,12 +73,17 @@ public class SeedDataService implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (!seedEnabled) {
+        seedAll(false);
+    }
+
+    @Transactional
+    public void seedAll(boolean force) {
+        if (!seedEnabled && !force) {
             System.out.println(">>> Seed data is disabled (app.seed.enabled=false). Skipping startup seed.");
             return;
         }
 
-        System.out.println(">>> Checking & Initializing FieldHub Production Master & Seed Data (Idempotent)...");
+        System.out.println(">>> Checking & Initializing FieldHub Production Master & Seed Data (Idempotent, force=" + force + ")...");
 
         // 1. Core Master Skills
         Skill sElec = findOrCreateSkill("Electrical Engineering", "Wiring, Circuit breakers, Load testing, Switchboards", "Electrical");
