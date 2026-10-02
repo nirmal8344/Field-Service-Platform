@@ -245,6 +245,22 @@ export const api = {
     return await request(`/inventory/${partId}/adjust`, { method: 'POST', body: JSON.stringify(adjustmentData) });
   },
 
+  // Part Requests Workflow
+  async getPartRequests() { return await request('/inventory/requests'); },
+  async getPartRequestById(id) { return await request(`/inventory/requests/${id}`); },
+  async createPartRequest(requestData) {
+    return await request('/inventory/requests', { method: 'POST', body: JSON.stringify(requestData) });
+  },
+  async forwardPartRequest(id, data = {}) {
+    return await request(`/inventory/requests/${id}/forward`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  async approvePartRequest(id, data = {}) {
+    return await request(`/inventory/requests/${id}/approve`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  async rejectPartRequest(id, data = {}) {
+    return await request(`/inventory/requests/${id}/reject`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+
   async getDashboardStats() { return await request('/analytics/dashboard'); },
   async getDetailedAnalytics() { return await request('/analytics/detailed'); },
 

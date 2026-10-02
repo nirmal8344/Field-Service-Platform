@@ -8,5 +8,6 @@ public enum NotificationType {
     VERIFICATION,
     REOPEN,
     LOW_STOCK,
+    PART_REQUEST,
     SYSTEM
 }

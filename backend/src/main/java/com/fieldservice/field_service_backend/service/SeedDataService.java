@@ -29,6 +29,7 @@ public class SeedDataService implements CommandLineRunner {
     private final WorkOrderHistoryRepository historyRepository;
     private final PartRepository partRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final PartRequestRepository partRequestRepository;
     private final CustomerFeedbackRepository feedbackRepository;
     private final InAppNotificationRepository notificationRepository;
     private final AuditLogRepository auditLogRepository;
@@ -50,6 +51,7 @@ public class SeedDataService implements CommandLineRunner {
                            PartRepository partRepository,
                            InventoryTransactionRepository inventoryTransactionRepository,
                            WorkOrderPartRepository workOrderPartRepository,
+                           PartRequestRepository partRequestRepository,
                            CustomerFeedbackRepository feedbackRepository,
                            InAppNotificationRepository notificationRepository,
                            AuditLogRepository auditLogRepository) {
@@ -65,6 +67,7 @@ public class SeedDataService implements CommandLineRunner {
         this.historyRepository = historyRepository;
         this.partRepository = partRepository;
         this.inventoryTransactionRepository = inventoryTransactionRepository;
+        this.partRequestRepository = partRequestRepository;
         this.feedbackRepository = feedbackRepository;
         this.notificationRepository = notificationRepository;
         this.auditLogRepository = auditLogRepository;
@@ -209,7 +212,7 @@ public class SeedDataService implements CommandLineRunner {
         // Keep legacy test customer accounts updated
         User custUserLegacy = findOrCreateUser("anand.murugan@gmail.com", "customer123", "Anand Murugan", "+91 98411 55667", Role.CUSTOMER);
         Customer custLegacy = findOrCreateCustomer(custUserLegacy, "Murugan Agencies", "COMMERCIAL", "+91 98411 55667", "Commercial Client - Chennai");
-        findOrCreateLocation(custLegacy, "Chennai Central Office", "No. 42, 2nd Avenue", "Anna Nagar", "Chennai", "Tamil Nadu", "600040", "Anand Murugan", "+91 98411 55667", LocationType.RESIDENTIAL, true);
+        ServiceLocation locLegacy = findOrCreateLocation(custLegacy, "Chennai Central Office", "No. 42, 2nd Avenue", "Anna Nagar", "Chennai", "Tamil Nadu", "600040", "Anand Murugan", "+91 98411 55667", LocationType.RESIDENTIAL, true);
 
         // 7. Parts & Inventory Catalog
         findOrCreatePart("1.5 Ton AC Capacitor 45uF", "HVAC", "CAP-AC-45", 28, 5, "pcs", 320.0, "Carrier Spares Chennai", "Warehouse Bay A-1");
@@ -226,15 +229,85 @@ public class SeedDataService implements CommandLineRunner {
         // 8. Sample Service Requests & Work Orders (idempotent by WO number)
         seedSampleRequestsAndWorkOrders(cust1, loc1, cust2, loc2, cust3, loc3, cust4, loc4,
                 cust5, loc5, cust6, loc6, cust7, loc7, cust8, loc8, cust9, loc9, cust10, loc10,
+                custLegacy, locLegacy,
                 catAC, catElec, catPlumb, catApp, catMaint,
                 techVignesh, techKarthik, techSuresh, techSaravanan, techDinesh, techPraveen, techSrinath,
-                dispFieldHub);
+                dispFieldHub, adminFieldHub);
 
-        // 9. In-App Notifications for ALL roles
+        // 9. Demo Technician Part Requests (Idempotent by Request Number)
+        Part pCap = partRepository.findBySku("CAP-AC-45").orElse(null);
+        Part pGas = partRepository.findBySku("GAS-R32-10").orElse(null);
+        Part pMcb = partRepository.findBySku("MCB-SIE-32").orElse(null);
+
+        findOrCreatePartRequest(
+                "PR-20261002-101",
+                pCap,
+                "1.5 Ton AC Capacitor 45uF",
+                "HVAC",
+                "CAP-AC-45",
+                3,
+                "pcs",
+                "Van stock exhausted. Required for split AC compressor repairs at Anna Nagar residential site.",
+                Priority.HIGH,
+                PartRequestStatus.PENDING,
+                techSrinath,
+                techUserSrinath,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        findOrCreatePartRequest(
+                "PR-20261002-102",
+                pGas,
+                "R32 Eco Refrigerant Gas (10kg)",
+                "HVAC",
+                "GAS-R32-10",
+                2,
+                "cylinders",
+                "Emergency gas recharge required for commercial AC units at Tidel Park facility.",
+                Priority.CRITICAL,
+                PartRequestStatus.FORWARDED,
+                techVignesh,
+                techUserFieldHub,
+                dispFieldHub,
+                LocalDateTime.now().minusHours(2),
+                "Verified on-site requirement with technician. Critical priority for commercial client, forwarded to Admin.",
+                null,
+                null,
+                null
+        );
+
+        findOrCreatePartRequest(
+                "PR-20261002-103",
+                pMcb,
+                "Siemens 32A Double Pole MCB",
+                "Electrical",
+                "MCB-SIE-32",
+                5,
+                "pcs",
+                "Main distribution panel overhaul for Salem commercial client.",
+                Priority.MEDIUM,
+                PartRequestStatus.APPROVED,
+                techKarthik,
+                techUserKarthik,
+                dispFieldHub,
+                LocalDateTime.now().minusHours(5),
+                "Technician requested 5 units for tomorrow's scheduled maintenance in Salem.",
+                adminFieldHub,
+                LocalDateTime.now().minusHours(3),
+                "Approved. Units reserved from Salem warehouse bin Rack E-3."
+        );
+
+        // 10. In-App Notifications for ALL roles
         // Customer notifications
         findOrCreateNotification(custUser1, "Welcome to FieldHub", "Your account is verified. You can book verified technicians across Tamil Nadu.", NotificationType.SYSTEM, "/customer/dashboard");
         findOrCreateNotification(custUser1, "Service Request Confirmed", "Your AC service request for Anna Nagar has been received and is being assigned.", NotificationType.SYSTEM, "/customer/requests");
         findOrCreateNotification(custUser1, "Technician On The Way", "Vignesh Kumar is en route to your location for AC cooling diagnosis.", NotificationType.ASSIGNMENT, "/customer/active");
+        findOrCreateNotification(custUserLegacy, "Welcome to FieldHub", "Your account is active. Book verified technicians across Tamil Nadu anytime.", NotificationType.SYSTEM, "/customer/dashboard");
         findOrCreateNotification(custUser2, "Welcome to FieldHub", "Your business account is verified. Book commercial service visits anytime.", NotificationType.SYSTEM, "/customer/dashboard");
         findOrCreateNotification(custUser2, "Service Completed", "Your MCB replacement in Salem showroom has been completed successfully.", NotificationType.COMPLETION, "/customer/history");
         findOrCreateNotification(custUser3, "Welcome to FieldHub", "Your corporate account is now active. Schedule maintenance visits for your Coimbatore office.", NotificationType.SYSTEM, "/customer/dashboard");
@@ -246,27 +319,25 @@ public class SeedDataService implements CommandLineRunner {
         findOrCreateNotification(techUserFieldHub, "Upcoming Job Tomorrow", "AC installation scheduled for tomorrow at Tidel Park, Chennai. Please confirm availability.", NotificationType.ASSIGNMENT, "/technician/upcoming");
         findOrCreateNotification(techUserFieldHub, "Job Completed Successfully", "Great work! Your completed job at Salem received a 5-star rating.", NotificationType.COMPLETION, "/technician/history");
         findOrCreateNotification(techUserFieldHub, "Schedule Update", "Your upcoming plumbing job at Coimbatore has been rescheduled to next week.", NotificationType.RESCHEDULE, "/technician/upcoming");
-        findOrCreateNotification(techUserFieldHub, "Parts Restocked", "R32 Refrigerant Gas cylinders have been restocked in Warehouse Bay.", NotificationType.SYSTEM, "/technician/inventory");
-        findOrCreateNotification(techUserKarthik, "New Work Order Assigned", "Emergency MCB replacement assigned at Salem showroom.", NotificationType.ASSIGNMENT, "/technician/jobs");
-        findOrCreateNotification(techUserKarthik, "Customer Feedback Received", "You received a 5-star rating for the Salem MCB replacement job!", NotificationType.COMPLETION, "/technician/history");
+        findOrCreateNotification(techUserFieldHub, "Part Request Forwarded to Admin", "Your request PR-20261002-102 for R32 Eco Refrigerant Gas has been reviewed and forwarded to Admin.", NotificationType.PART_REQUEST, "/technician/inventory");
+        findOrCreateNotification(techUserKarthik, "Part Request Approved", "Your request PR-20261002-103 for Siemens 32A Double Pole MCB was APPROVED by Admin.", NotificationType.PART_REQUEST, "/technician/inventory");
 
         // Dispatcher notifications
-        findOrCreateNotification(dispFieldHub, "New Service Request", "Unassigned service request from Suresh Babu in Madurai. Priority: HIGH.", NotificationType.SYSTEM, "/dispatcher/requests");
+        findOrCreateNotification(dispFieldHub, "New Part Request: 1.5 Ton AC Capacitor 45uF", "Srinath requested 3 pcs of 1.5 Ton AC Capacitor 45uF. Review and forward to Admin.", NotificationType.PART_REQUEST, "/dispatcher/inventory");
+        findOrCreateNotification(dispFieldHub, "New Service Request", "Unassigned service request from Anand Murugan in Anna Nagar, Chennai. Priority: HIGH.", NotificationType.SYSTEM, "/dispatcher/requests");
         findOrCreateNotification(dispFieldHub, "SLA Warning", "Work order WO-20261002-1001 is approaching SLA deadline. Review immediately.", NotificationType.SLA_ALERT, "/dispatcher/work-orders");
         findOrCreateNotification(dispFieldHub, "Technician Available", "Praveen Chandran is now available for new assignments in Tiruppur region.", NotificationType.SYSTEM, "/dispatcher/scheduling");
         findOrCreateNotification(dispFieldHub, "Job Completed", "Karthik Rajan completed MCB replacement in Salem. Customer verified.", NotificationType.COMPLETION, "/dispatcher/work-orders");
-        findOrCreateNotification(dispFieldHub, "Schedule Conflict", "Two overlapping jobs detected for Srinath on tomorrow's schedule.", NotificationType.RESCHEDULE, "/dispatcher/scheduling");
 
         // Administrator notifications
+        findOrCreateNotification(adminFieldHub, "Part Request Forwarded: R32 Eco Refrigerant Gas", "Dispatcher Suresh Kumar forwarded part request PR-20261002-102 for Admin approval.", NotificationType.PART_REQUEST, "/admin/inventory");
         findOrCreateNotification(adminFieldHub, "Low Stock Alert: R32 Refrigerant Gas", "R32 gas cylinder stock is nearing reorder threshold.", NotificationType.LOW_STOCK, "/admin/inventory");
         findOrCreateNotification(adminFieldHub, "New Technician Onboarded", "Praveen Chandran has been registered and activated as TECH-105.", NotificationType.SYSTEM, "/admin/users");
         findOrCreateNotification(adminFieldHub, "Weekly Report Ready", "FieldHub weekly operations report for Tamil Nadu region is available.", NotificationType.SYSTEM, "/admin/reports");
-        findOrCreateNotification(adminFieldHub, "System Health: All Green", "All 7 technicians active. 5 service categories operational. 23 service types available.", NotificationType.SYSTEM, "/admin/dashboard");
-        findOrCreateNotification(adminFieldHub, "Critical SLA Breach", "Work order in Madurai has breached response SLA. Immediate attention required.", NotificationType.SLA_ALERT, "/admin/work-orders");
         findOrCreateNotification(adminFieldHub, "Revenue Milestone", "FieldHub Tamil Nadu operations crossed ₹50,000 in completed service revenue.", NotificationType.SYSTEM, "/admin/reports");
 
-        // 10. Audit Log
-        auditLogRepository.save(new AuditLog("administrator@fieldhub.com", "ADMINISTRATOR", "SYSTEM_BOOTSTRAP", "System", "1", "Initialized and verified FieldHub Tamil Nadu master catalog and demo seed data", "127.0.0.1"));
+        // 11. Audit Log
+        auditLogRepository.save(new AuditLog("administrator@fieldhub.com", "ADMINISTRATOR", "SYSTEM_BOOTSTRAP", "System", "1", "Initialized and verified FieldHub Tamil Nadu master catalog, demo customer requests, and part request workflow", "127.0.0.1"));
 
         System.out.println(">>> FieldHub Production Master & Seed Data Initialized Successfully!");
     }
@@ -399,16 +470,54 @@ public class SeedDataService implements CommandLineRunner {
             Customer cust5, ServiceLocation loc5, Customer cust6, ServiceLocation loc6,
             Customer cust7, ServiceLocation loc7, Customer cust8, ServiceLocation loc8,
             Customer cust9, ServiceLocation loc9, Customer cust10, ServiceLocation loc10,
+            Customer custLegacy, ServiceLocation locLegacy,
             ServiceCategory catAC, ServiceCategory catElec,
             ServiceCategory catPlumb, ServiceCategory catApp, ServiceCategory catMaint,
             Technician techVignesh, Technician techKarthik, Technician techSuresh,
             Technician techSaravanan, Technician techDinesh, Technician techPraveen,
-            Technician techSrinath, User dispatcher) {
+            Technician techSrinath, User dispatcher, User admin) {
+
+        // ── DEMO CUSTOMER SERVICE REQUESTS (Awaiting Dispatcher Assignment) ──
+        // Request 1: AC Cooling Issue in Chennai (Anand Murugan)
+        findOrCreateRequest(
+                "REQ-TN-AC-2026-01",
+                custLegacy,
+                locLegacy,
+                catAC,
+                "Daikin 1.5 Ton Inverter AC indoor unit is not cooling and throwing error code E4 in master bedroom at Anna Nagar residence. Coil ice formation noticed.",
+                Priority.HIGH,
+                LocalDate.now().plusDays(1),
+                "09:00 AM - 12:00 PM"
+        );
+
+        // Request 2: Electrical MCB Sparking in Chennai (Anand Murugan)
+        findOrCreateRequest(
+                "REQ-TN-ELEC-2026-02",
+                custLegacy,
+                locLegacy,
+                catElec,
+                "Main 32A MCB switchboard tripping frequently whenever heavy kitchen appliances are switched on. Sparking sound heard in DB panel.",
+                Priority.CRITICAL,
+                LocalDate.now(),
+                "02:00 PM - 05:00 PM"
+        );
+
+        // Request 3: Plumbing Concealed Pipe Leak in Chennai (Anand Murugan)
+        findOrCreateRequest(
+                "REQ-TN-PLUMB-2026-03",
+                custLegacy,
+                locLegacy,
+                catPlumb,
+                "Bathroom main CPVC pipeline joint leaking continuously beneath washbasin cabinet. Water pressure to overhead shower is drastically reduced.",
+                Priority.MEDIUM,
+                LocalDate.now().plusDays(2),
+                "10:00 AM - 01:00 PM"
+        );
 
         // ── TODAY'S JOBS ──────────────────────────────────────────────────
         // WO-1001: IN_PROGRESS — Vignesh — AC Cooling in Chennai
         if (!workOrderExists("WO-20261002-1001")) {
-            ServiceRequest req = createRequest(cust1, loc1, catAC,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1001", cust1, loc1, catAC,
                     "Split AC in master bedroom not cooling effectively. Airflow is weak.", Priority.HIGH,
                     LocalDate.now(), "09:00 AM - 12:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20261002-1001", req, cust1, loc1, catAC,
@@ -421,7 +530,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-1004: ASSIGNED — Vignesh — Electrical inspection at Tidel Park (today afternoon)
         if (!workOrderExists("WO-20261002-1004")) {
-            ServiceRequest req = createRequest(cust1, loc1b(cust1), catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1004", cust1, loc1b(cust1), catElec,
                     "Office lighting panel flickering intermittently during peak hours at Tidel Park.", Priority.MEDIUM,
                     LocalDate.now(), "02:00 PM - 05:00 PM");
             createWorkOrderRecord("WO-20261002-1004", req, cust1, loc1b(cust1), catElec,
@@ -431,7 +540,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-1005: ACCEPTED — Vignesh — Plumbing at Erode (today)
         if (!workOrderExists("WO-20261002-1005")) {
-            ServiceRequest req = createRequest(cust6, loc6, catPlumb,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1005", cust6, loc6, catPlumb,
                     "Warehouse overhead tank leaking at junction pipe, water pooling near entrance.", Priority.HIGH,
                     LocalDate.now(), "11:00 AM - 02:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20261002-1005", req, cust6, loc6, catPlumb,
@@ -443,7 +552,7 @@ public class SeedDataService implements CommandLineRunner {
         // ── UPCOMING JOBS ─────────────────────────────────────────────────
         // WO-1006: ASSIGNED — Vignesh — AC Installation at Coimbatore (tomorrow)
         if (!workOrderExists("WO-20261003-1006")) {
-            ServiceRequest req = createRequest(cust3, loc3, catAC,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1006", cust3, loc3, catAC,
                     "New 2-ton split AC installation required in server room. Wall mounting and copper piping needed.", Priority.HIGH,
                     LocalDate.now().plusDays(1), "09:00 AM - 01:00 PM");
             createWorkOrderRecord("WO-20261003-1006", req, cust3, loc3, catAC,
@@ -453,7 +562,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-1007: SCHEDULED — Vignesh — Appliance repair at Madurai (day after tomorrow)
         if (!workOrderExists("WO-20261004-1007")) {
-            ServiceRequest req = createRequest(cust4, loc4, catApp,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1007", cust4, loc4, catApp,
                     "Commercial refrigerator compressor making loud rattling noise during startup.", Priority.MEDIUM,
                     LocalDate.now().plusDays(2), "10:00 AM - 01:00 PM");
             createWorkOrderRecord("WO-20261004-1007", req, cust4, loc4, catApp,
@@ -463,7 +572,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-1008: ASSIGNED — Vignesh — Home Maintenance at Trichy (3 days out)
         if (!workOrderExists("WO-20261005-1008")) {
-            ServiceRequest req = createRequest(cust5, loc5, catMaint,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1008", cust5, loc5, catMaint,
                     "Interior wall repainting needed in 3 bedrooms. Previous paint peeling due to moisture.", Priority.LOW,
                     LocalDate.now().plusDays(3), "09:00 AM - 05:00 PM");
             createWorkOrderRecord("WO-20261005-1008", req, cust5, loc5, catMaint,
@@ -473,7 +582,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-1003: ASSIGNED — Srinath — Plumbing at Coimbatore (tomorrow)
         if (!workOrderExists("WO-20261003-1003")) {
-            ServiceRequest req = createRequest(cust3, loc3, catPlumb,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1003", cust3, loc3, catPlumb,
                     "Underground pipe joint leak near pump room in Coimbatore.", Priority.MEDIUM,
                     LocalDate.now().plusDays(1), "10:00 AM - 01:00 PM");
             createWorkOrderRecord("WO-20261003-1003", req, cust3, loc3, catPlumb,
@@ -482,28 +591,22 @@ public class SeedDataService implements CommandLineRunner {
         }
 
         // ── PENDING SERVICE REQUESTS (Awaiting Dispatcher Assignment) ──────
-        if (!workOrderExists("WO-PENDING-1009")) {
-            createRequest(cust4, loc4, catApp,
-                    "Front-load washing machine displaying drain error code E03 in Madurai store.", Priority.HIGH,
-                    LocalDate.now().plusDays(1), "03:00 PM - 06:00 PM");
-        }
+        findOrCreateRequest("REQ-PENDING-1009", cust4, loc4, catApp,
+                "Front-load washing machine displaying drain error code E03 in Madurai store.", Priority.HIGH,
+                LocalDate.now().plusDays(1), "03:00 PM - 06:00 PM");
 
-        if (!workOrderExists("WO-PENDING-1010")) {
-            createRequest(cust7, loc7, catElec,
-                    "Factory main power distribution panel showing phase imbalance. Three-phase motor tripping frequently.", Priority.CRITICAL,
-                    LocalDate.now().plusDays(1), "08:00 AM - 11:00 AM");
-        }
+        findOrCreateRequest("REQ-PENDING-1010", cust7, loc7, catElec,
+                "Factory main power distribution panel showing phase imbalance. Three-phase motor tripping frequently.", Priority.CRITICAL,
+                LocalDate.now().plusDays(1), "08:00 AM - 11:00 AM");
 
-        if (!workOrderExists("WO-PENDING-1011")) {
-            createRequest(cust9, loc9, catMaint,
-                    "Manufacturing plant entrance door lock mechanism jammed. Security access compromised.", Priority.HIGH,
-                    LocalDate.now(), "Urgent - Any Slot");
-        }
+        findOrCreateRequest("REQ-PENDING-1011", cust9, loc9, catMaint,
+                "Manufacturing plant entrance door lock mechanism jammed. Security access compromised.", Priority.HIGH,
+                LocalDate.now(), "Urgent - Any Slot");
 
         // ── HISTORICAL / COMPLETED WORK ORDERS ────────────────────────────
         // WO-1002: CLOSED — Karthik — Electrical in Salem (yesterday)
         if (!workOrderExists("WO-20261001-1002")) {
-            ServiceRequest req = createRequest(cust2, loc2, catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-1002", cust2, loc2, catElec,
                     "Main MCB tripping repeatedly under load in Salem showroom.", Priority.CRITICAL,
                     LocalDate.now().minusDays(1), "02:00 PM - 04:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20261001-1002", req, cust2, loc2, catElec,
@@ -522,7 +625,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2001: CLOSED — Vignesh — AC Service in Chennai (5 days ago)
         if (!workOrderExists("WO-20260927-2001")) {
-            ServiceRequest req = createRequest(cust1, loc1, catAC,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2001", cust1, loc1, catAC,
                     "Annual AC maintenance service for 3 split units in Anna Nagar residence.", Priority.MEDIUM,
                     LocalDate.now().minusDays(5), "09:00 AM - 01:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20260927-2001", req, cust1, loc1, catAC,
@@ -541,7 +644,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2002: CLOSED — Vignesh — Electrical in Tiruppur (3 days ago)
         if (!workOrderExists("WO-20260929-2002")) {
-            ServiceRequest req = createRequest(cust7, loc7, catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2002", cust7, loc7, catElec,
                     "Factory floor lighting circuit tripping. Production line affected.", Priority.CRITICAL,
                     LocalDate.now().minusDays(3), "08:00 AM - 11:00 AM");
             WorkOrder wo = createWorkOrderRecord("WO-20260929-2002", req, cust7, loc7, catElec,
@@ -560,7 +663,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2003: COMPLETED (awaiting verification) — Dinesh — Plumbing in Namakkal (2 days ago)
         if (!workOrderExists("WO-20260930-2003")) {
-            ServiceRequest req = createRequest(cust8, loc8, catPlumb,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2003", cust8, loc8, catPlumb,
                     "Farm headquarters water pump making grinding noise. Pressure drop in irrigation lines.", Priority.HIGH,
                     LocalDate.now().minusDays(2), "07:00 AM - 10:00 AM");
             WorkOrder wo = createWorkOrderRecord("WO-20260930-2003", req, cust8, loc8, catPlumb,
@@ -575,7 +678,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2004: CLOSED — Suresh — Solar in Vellore (7 days ago)
         if (!workOrderExists("WO-20260925-2004")) {
-            ServiceRequest req = createRequest(cust10, loc10, catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2004", cust10, loc10, catElec,
                     "Rooftop solar inverter showing error code E-07. No power output since morning.", Priority.HIGH,
                     LocalDate.now().minusDays(7), "10:00 AM - 01:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20260925-2004", req, cust10, loc10, catElec,
@@ -594,7 +697,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2005: CLOSED — Praveen — Appliance in Hosur (4 days ago)
         if (!workOrderExists("WO-20260928-2005")) {
-            ServiceRequest req = createRequest(cust9, loc9, catApp,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2005", cust9, loc9, catApp,
                     "Industrial washing machine motor overheating. Emergency stop triggered twice today.", Priority.CRITICAL,
                     LocalDate.now().minusDays(4), "02:00 PM - 05:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20260928-2005", req, cust9, loc9, catApp,
@@ -613,7 +716,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2006: ON_HOLD — Saravanan — CCTV/Security at Erode (1 day ago)
         if (!workOrderExists("WO-20261001-2006")) {
-            ServiceRequest req = createRequest(cust6, loc6, catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2006", cust6, loc6, catElec,
                     "CCTV system DVR not recording. 4 out of 8 cameras showing no signal.", Priority.HIGH,
                     LocalDate.now().minusDays(1), "10:00 AM - 01:00 PM");
             WorkOrder wo = createWorkOrderRecord("WO-20261001-2006", req, cust6, loc6, catElec,
@@ -627,7 +730,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2007: ASSIGNED — Karthik — Electrical in Vellore (tomorrow)
         if (!workOrderExists("WO-20261003-2007")) {
-            ServiceRequest req = createRequest(cust10, loc10, catElec,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2007", cust10, loc10, catElec,
                     "Home UPS system not charging battery. Inverter switching delay noticed.", Priority.MEDIUM,
                     LocalDate.now().plusDays(1), "02:00 PM - 05:00 PM");
             createWorkOrderRecord("WO-20261003-2007", req, cust10, loc10, catElec,
@@ -637,7 +740,7 @@ public class SeedDataService implements CommandLineRunner {
 
         // WO-2008: ASSIGNED — Vignesh — AC Gas Refill at Hosur (2 days out)
         if (!workOrderExists("WO-20261004-2008")) {
-            ServiceRequest req = createRequest(cust9, loc9, catAC,
+            ServiceRequest req = findOrCreateRequest("REQ-WO-2008", cust9, loc9, catAC,
                     "Central AC unit in manufacturing plant showing low cooling output. Suspected gas leak.", Priority.HIGH,
                     LocalDate.now().plusDays(2), "09:00 AM - 12:00 PM");
             createWorkOrderRecord("WO-20261004-2008", req, cust9, loc9, catAC,
@@ -655,19 +758,39 @@ public class SeedDataService implements CommandLineRunner {
         return locs.isEmpty() ? null : locs.get(0);
     }
 
-    private ServiceRequest createRequest(Customer cust, ServiceLocation loc, ServiceCategory cat, String desc, Priority prio, LocalDate prefDate, String timeSlot) {
-        ServiceRequest req = new ServiceRequest();
-        req.setRequestNumber("REQ-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-" + (1000 + (int)(Math.random() * 9000)));
-        req.setCustomer(cust);
-        req.setServiceLocation(loc);
-        req.setServiceCategory(cat);
-        req.setProblemDescription(desc);
-        req.setPriority(prio);
-        req.setPreferredDate(prefDate);
-        req.setPreferredTimeSlot(timeSlot);
-        req.setStatus(RequestStatus.REQUESTED);
-        req.setRequestDate(LocalDateTime.now());
-        return requestRepository.save(req);
+    private ServiceRequest findOrCreateRequest(String reqNumber, Customer cust, ServiceLocation loc, ServiceCategory cat, String desc, Priority prio, LocalDate prefDate, String timeSlot) {
+        return requestRepository.findByRequestNumber(reqNumber).orElseGet(() -> {
+            ServiceRequest req = new ServiceRequest();
+            req.setRequestNumber(reqNumber);
+            req.setCustomer(cust);
+            req.setServiceLocation(loc);
+            req.setServiceCategory(cat);
+            req.setProblemDescription(desc);
+            req.setPriority(prio);
+            req.setPreferredDate(prefDate);
+            req.setPreferredTimeSlot(timeSlot);
+            req.setStatus(RequestStatus.REQUESTED);
+            req.setRequestDate(LocalDateTime.now());
+            return requestRepository.save(req);
+        });
+    }
+
+    private PartRequest findOrCreatePartRequest(String reqNum, Part part, String partName, String category, String sku,
+                                               int qty, String unit, String reason, Priority prio,
+                                               PartRequestStatus status, Technician tech, User techUser,
+                                               User forwarder, LocalDateTime forwardedAt, String dispNotes,
+                                               User reviewer, LocalDateTime reviewedAt, String adminNotes) {
+        return partRequestRepository.findByRequestNumber(reqNum).orElseGet(() -> {
+            PartRequest pr = new PartRequest(reqNum, part, partName, category, sku, qty, unit, reason, prio, tech, techUser, null);
+            pr.setStatus(status);
+            pr.setForwardedBy(forwarder);
+            pr.setForwardedAt(forwardedAt);
+            pr.setDispatcherNotes(dispNotes);
+            pr.setReviewedBy(reviewer);
+            pr.setReviewedAt(reviewedAt);
+            pr.setAdminNotes(adminNotes);
+            return partRequestRepository.save(pr);
+        });
     }
 
     private WorkOrder createWorkOrderRecord(String woNumber, ServiceRequest req, Customer cust, ServiceLocation loc, ServiceCategory cat,
@@ -698,3 +821,4 @@ public class SeedDataService implements CommandLineRunner {
         return wo;
     }
 }
+

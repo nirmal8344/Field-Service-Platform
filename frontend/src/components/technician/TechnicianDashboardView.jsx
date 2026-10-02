@@ -21,7 +21,14 @@ import {
   RefreshCw,
   PhoneCall,
   History,
-  Star
+  Star,
+  ArrowRight,
+  CheckCheck,
+  Send,
+  Package,
+  Boxes,
+  Tag,
+  FileText
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/useAuth';
@@ -58,6 +65,7 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
   // State
   const [myJobs, setMyJobs] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [partRequests, setPartRequests] = useState([]);
   const [techProfile, setTechProfile] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -67,6 +75,22 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState('');
   const [scheduleFilter, setScheduleFilter] = useState('ALL'); // 'TODAY', 'TOMORROW', 'UPCOMING', 'ALL'
+
+  // Part Request State & Subtab
+  const [partRequestTab, setPartRequestTab] = useState('CATALOG'); // 'CATALOG' | 'MY_REQUESTS'
+  const [isPartRequestModalOpen, setIsPartRequestModalOpen] = useState(false);
+  const [partRequestForm, setPartRequestForm] = useState({
+    partId: '',
+    partName: '',
+    category: 'HVAC',
+    sku: '',
+    quantity: 1,
+    unit: 'pcs',
+    reason: '',
+    priority: 'HIGH',
+    workOrderId: ''
+  });
+  const [partRequestLoading, setPartRequestLoading] = useState(false);
 
   // Modals & Action States
   // 1. Detailed Job Modal / Work Dossier
@@ -164,14 +188,16 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
   const loadTechnicianData = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [jobs, inv, profile] = await Promise.all([
+      const [jobs, inv, profile, reqs] = await Promise.all([
         api.getMyTechnicianWorkOrders().catch(() => []),
         api.getInventory().catch(() => []),
-        api.getMyTechnicianProfile().catch(() => null)
+        api.getMyTechnicianProfile().catch(() => null),
+        api.getPartRequests().catch(() => [])
       ]);
       setMyJobs(jobs || []);
       setInventory(inv || []);
       if (profile) setTechProfile(profile);
+      setPartRequests(reqs || []);
 
       // Keep selected job in sync if modal is open
       if (selectedJobForDetails) {
@@ -184,6 +210,76 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
       setLoadingData(false);
     }
   }, [selectedJobForDetails]);
+
+  const handleOpenPartRequestModal = (preselectedPart = null) => {
+    if (preselectedPart) {
+      setPartRequestForm({
+        partId: preselectedPart.id || '',
+        partName: preselectedPart.partName || preselectedPart.name || '',
+        category: preselectedPart.category || 'General',
+        sku: preselectedPart.sku || '',
+        quantity: 1,
+        unit: preselectedPart.unit || 'pcs',
+        reason: '',
+        priority: 'HIGH',
+        workOrderId: selectedJobForDetails?.id || ''
+      });
+    } else {
+      setPartRequestForm({
+        partId: '',
+        partName: '',
+        category: 'General',
+        sku: '',
+        quantity: 1,
+        unit: 'pcs',
+        reason: '',
+        priority: 'HIGH',
+        workOrderId: selectedJobForDetails?.id || ''
+      });
+    }
+    setIsPartRequestModalOpen(true);
+  };
+
+  const handleSubmitPartRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!partRequestForm.partName?.trim()) {
+      addToast('Please enter a part name.', 'warning', 'Part Name Required');
+      return;
+    }
+    if (!partRequestForm.quantity || Number(partRequestForm.quantity) <= 0) {
+      addToast('Quantity must be at least 1.', 'warning', 'Invalid Quantity');
+      return;
+    }
+    if (!partRequestForm.reason?.trim()) {
+      addToast('Please provide a reason for the part request.', 'warning', 'Reason Required');
+      return;
+    }
+
+    setPartRequestLoading(true);
+    try {
+      const payload = {
+        partId: partRequestForm.partId ? Number(partRequestForm.partId) : null,
+        partName: partRequestForm.partName.trim(),
+        category: partRequestForm.category || 'General',
+        sku: partRequestForm.sku || null,
+        quantity: Number(partRequestForm.quantity),
+        unit: partRequestForm.unit || 'pcs',
+        reason: partRequestForm.reason.trim(),
+        priority: partRequestForm.priority || 'HIGH',
+        workOrderId: partRequestForm.workOrderId ? Number(partRequestForm.workOrderId) : null
+      };
+      await api.createPartRequest(payload);
+      addToast(`Part request for "${partRequestForm.partName}" submitted! Dispatcher notified.`, 'success', 'Request Submitted');
+      setIsPartRequestModalOpen(false);
+      setPartRequestTab('MY_REQUESTS');
+      await loadTechnicianData();
+    } catch (err) {
+      console.error('Failed to submit part request:', err);
+      addToast(err.message || 'Failed to submit part request.', 'error', 'Submission Failed');
+    } finally {
+      setPartRequestLoading(false);
+    }
+  };
 
   const fetchRef = useRef(null);
   useLayoutEffect(() => {
@@ -1752,75 +1848,404 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
       )}
 
       {/* ========================================================================= */}
-      {/* 7. PARTS & INVENTORY LOOKUP TAB                                           */}
+      {/* 7. PARTS & INVENTORY LOOKUP & REQUEST TAB                                 */}
       {/* ========================================================================= */}
       {activeSubTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#09090b', margin: 0, letterSpacing: '-0.02em' }}>
-              Service Parts & Truck Inventory ({inventory.length})
-            </h2>
-            <p style={{ fontSize: '0.82rem', color: '#71717a', margin: '3px 0 0 0' }}>
-              Check available parts, SKUs, storage aisles, and stock levels before heading to field sites.
-            </p>
-          </div>
+          {/* Header & Main Request Action */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#09090b', margin: 0, letterSpacing: '-0.02em' }}>
+                Parts & Truck Inventory
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: '#71717a', margin: '3px 0 0 0' }}>
+                Check available stock, storage aisles, and submit part requests to Dispatcher & Admin.
+              </p>
+            </div>
 
-          <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
-                    <th style={{ padding: '12px 16px' }}>Part Name / SKU</th>
-                    <th style={{ padding: '12px 16px' }}>Category</th>
-                    <th style={{ padding: '12px 16px' }}>Available Quantity</th>
-                    <th style={{ padding: '12px 16px' }}>Storage Location</th>
-                    <th style={{ padding: '12px 16px' }}>Stock Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory.map(part => {
-                    const isLow = (part.quantity || 0) <= (part.minimumStock || 0);
-                    return (
-                      <tr key={part.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ fontWeight: 700, color: '#09090b' }}>{part.name}</div>
-                          <div style={{ fontSize: '0.74rem', color: '#71717a', fontFamily: 'monospace' }}>{part.sku}</div>
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#52525b' }}>
-                          {part.category || 'GENERAL'}
-                        </td>
-                        <td style={{ padding: '12px 16px', fontWeight: 800, color: isLow ? '#dc2626' : '#16a34a' }}>
-                          {part.quantity} {part.unit || 'pcs'}
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#52525b' }}>
-                          {part.storageLocation || 'Main Warehouse'}
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: '9999px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            background: isLow ? '#fee2e2' : '#dcfce7',
-                            color: isLow ? '#991b1b' : '#166534'
-                          }}>
-                            {isLow ? 'LOW STOCK' : 'AVAILABLE'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {inventory.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#71717a' }}>
-                        No inventory parts registered.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => handleOpenPartRequestModal()}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  borderRadius: '9999px',
+                  background: '#09090b',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#27272a'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#09090b'}
+              >
+                <Plus size={16} />
+                <span>Request Part</span>
+              </button>
             </div>
           </div>
+
+          {/* Sub-tab Switcher: Catalog vs My Requests */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e4e4e7', paddingBottom: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setPartRequestTab('CATALOG')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: '9999px',
+                border: 'none',
+                background: partRequestTab === 'CATALOG' ? '#09090b' : '#f4f4f5',
+                color: partRequestTab === 'CATALOG' ? '#ffffff' : '#52525b',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Boxes size={15} />
+              <span>Available Inventory ({inventory.length})</span>
+            </button>
+
+            <button
+              onClick={() => setPartRequestTab('MY_REQUESTS')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: '9999px',
+                border: 'none',
+                background: partRequestTab === 'MY_REQUESTS' ? '#09090b' : '#f4f4f5',
+                color: partRequestTab === 'MY_REQUESTS' ? '#ffffff' : '#52525b',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                position: 'relative'
+              }}
+            >
+              <FileText size={15} />
+              <span>My Part Requests ({partRequests.length})</span>
+              {partRequests.some(r => r.status === 'PENDING' || r.status === 'FORWARDED') && (
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#f59e0b',
+                  display: 'inline-block'
+                }} />
+              )}
+            </button>
+          </div>
+
+          {/* TAB 1: INVENTORY CATALOG */}
+          {partRequestTab === 'CATALOG' && (
+            <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 240px' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                  <input
+                    type="text"
+                    placeholder="Search by part name, category or SKU..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px 0 34px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="responsive-table-container" style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left', minWidth: '680px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
+                      <th style={{ padding: '12px 16px' }}>Part Name / SKU</th>
+                      <th style={{ padding: '12px 16px' }}>Category</th>
+                      <th style={{ padding: '12px 16px' }}>Available Stock</th>
+                      <th style={{ padding: '12px 16px' }}>Storage Location</th>
+                      <th style={{ padding: '12px 16px' }}>Stock Status</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory
+                      .filter(part => {
+                        if (!searchTerm) return true;
+                        const q = searchTerm.toLowerCase();
+                        const name = (part.partName || part.name || '').toLowerCase();
+                        const sku = (part.sku || '').toLowerCase();
+                        const cat = (part.category || '').toLowerCase();
+                        return name.includes(q) || sku.includes(q) || cat.includes(q);
+                      })
+                      .map(part => {
+                        const isLow = (part.quantity || 0) <= (part.minimumStock || 0);
+                        const isOut = (part.quantity || 0) === 0;
+                        const partDisplayName = part.partName || part.name || 'Unnamed Part';
+
+                        return (
+                          <tr key={part.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 700, color: '#09090b' }}>{partDisplayName}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#71717a', fontFamily: 'monospace' }}>SKU: {part.sku || 'N/A'}</div>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+                                {part.category || 'General'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px', fontWeight: 800, color: isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a' }}>
+                              {part.quantity} {part.unit || 'pcs'}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#52525b' }}>
+                              {part.storageLocation || part.location || 'Central Warehouse'}
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '3px 9px',
+                                borderRadius: '9999px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                background: isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7',
+                                color: isOut ? '#991b1b' : isLow ? '#92400e' : '#166534'
+                              }}>
+                                {isOut ? 'OUT OF STOCK' : isLow ? 'LOW STOCK' : 'AVAILABLE'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <button
+                                onClick={() => handleOpenPartRequestModal(part)}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e4e4e7',
+                                  background: '#ffffff',
+                                  color: '#09090b',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = '#f4f4f5';
+                                  e.currentTarget.style.borderColor = '#09090b';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = '#ffffff';
+                                  e.currentTarget.style.borderColor = '#e4e4e7';
+                                }}
+                              >
+                                Request Stock
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {inventory.length === 0 && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#71717a' }}>
+                          No inventory parts registered.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: MY PART REQUESTS WORKFLOW */}
+          {partRequestTab === 'MY_REQUESTS' && (
+            <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                    My Submitted Part Requests ({partRequests.length})
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: '#71717a', margin: '2px 0 0 0' }}>
+                    Track approval lifecycle: Pending Dispatcher Review → Forwarded to Admin → Approved / Fulfilled
+                  </p>
+                </div>
+
+                <button
+                  onClick={loadTechnicianData}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #e4e4e7',
+                    background: '#f4f4f5',
+                    color: '#09090b',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <RefreshCw size={13} />
+                  <span>Refresh Status</span>
+                </button>
+              </div>
+
+              {partRequests.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', background: '#f9fafb', borderRadius: '14px', border: '1px dashed #e4e4e7' }}>
+                  <Package size={36} color="#a1a1aa" style={{ margin: '0 auto 10px auto' }} />
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#09090b', margin: 0 }}>No Part Requests Yet</h4>
+                  <p style={{ fontSize: '0.8rem', color: '#71717a', marginTop: '4px', maxWidth: '380px', margin: '4px auto 14px auto' }}>
+                    Need extra spares, tools, or refrigerants for an on-site job? Click below to request.
+                  </p>
+                  <button
+                    onClick={() => handleOpenPartRequestModal()}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '9999px',
+                      background: '#09090b',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Submit Part Request
+                  </button>
+                </div>
+              ) : (
+                <div className="responsive-table-container" style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left', minWidth: '760px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
+                        <th style={{ padding: '12px 16px' }}>Request # / Part</th>
+                        <th style={{ padding: '12px 16px' }}>Category & SKU</th>
+                        <th style={{ padding: '12px 16px' }}>Qty</th>
+                        <th style={{ padding: '12px 16px' }}>Reason & Work Order</th>
+                        <th style={{ padding: '12px 16px' }}>Workflow Status</th>
+                        <th style={{ padding: '12px 16px' }}>Reviewer Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partRequests.map(req => {
+                        let statusBg = '#fef3c7';
+                        let statusColor = '#92400e';
+                        let statusText = 'Pending Dispatch Review';
+                        let StatusIcon = Clock;
+
+                        if (req.status === 'FORWARDED') {
+                          statusBg = '#eff6ff';
+                          statusColor = '#1e40af';
+                          statusText = 'Forwarded to Admin';
+                          StatusIcon = ArrowRight;
+                        } else if (req.status === 'APPROVED') {
+                          statusBg = '#dcfce7';
+                          statusColor = '#166534';
+                          statusText = 'Approved by Admin';
+                          StatusIcon = CheckCircle2;
+                        } else if (req.status === 'FULFILLED') {
+                          statusBg = '#ccfbf1';
+                          statusColor = '#115e59';
+                          statusText = 'Fulfilled & Added';
+                          StatusIcon = CheckCheck;
+                        } else if (req.status === 'REJECTED') {
+                          statusBg = '#fee2e2';
+                          statusColor = '#991b1b';
+                          statusText = 'Rejected';
+                          StatusIcon = X;
+                        }
+
+                        return (
+                          <tr key={req.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 800, color: '#09090b', fontSize: '0.86rem' }}>
+                                {req.partName}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: '#71717a', fontFamily: 'monospace' }}>
+                                {req.requestNumber}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#a1a1aa', marginTop: '2px' }}>
+                                {req.createdAt ? new Date(req.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+                                {req.category || 'General'}
+                              </span>
+                              {req.sku && <div style={{ fontSize: '0.72rem', color: '#71717a', marginTop: '3px' }}>SKU: {req.sku}</div>}
+                            </td>
+
+                            <td style={{ padding: '12px 16px', fontWeight: 800, color: '#09090b' }}>
+                              {req.quantity} {req.unit || 'pcs'}
+                            </td>
+
+                            <td style={{ padding: '12px 16px', maxWidth: '240px' }}>
+                              <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                                {req.reason}
+                              </div>
+                              {req.workOrderNumber && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+                                  Linked WO: <strong>{req.workOrderNumber}</strong>
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 10px',
+                                borderRadius: '9999px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                background: statusBg,
+                                color: statusColor
+                              }}>
+                                <StatusIcon size={12} />
+                                <span>{statusText}</span>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px', fontSize: '0.78rem', color: '#52525b', maxWidth: '220px' }}>
+                              {req.dispatcherNotes && (
+                                <div style={{ marginBottom: '4px' }}>
+                                  <strong style={{ color: '#09090b', fontSize: '0.72rem' }}>Dispatcher: </strong>
+                                  <span>{req.dispatcherNotes}</span>
+                                </div>
+                              )}
+                              {req.adminNotes && (
+                                <div>
+                                  <strong style={{ color: '#09090b', fontSize: '0.72rem' }}>Admin: </strong>
+                                  <span>{req.adminNotes}</span>
+                                </div>
+                              )}
+                              {!req.dispatcherNotes && !req.adminNotes && (
+                                <span style={{ color: '#a1a1aa', fontStyle: 'italic' }}>Awaiting review</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -2858,6 +3283,338 @@ export default function TechnicianDashboardView({ currentTab = 'tech-dashboard',
                   }}
                 >
                   {completeLoading ? 'Finalizing...' : 'Submit & Complete Job'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. TECHNICIAN PART REQUEST MODAL                                          */}
+      {/* ========================================================================= */}
+      {isPartRequestModalOpen && (
+        <div 
+          className="modal-overlay"
+          onClick={() => setIsPartRequestModalOpen(false)}
+        >
+          <div 
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '560px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Warehouse Requisition
+                </span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#09090b', margin: '3px 0 0 0' }}>
+                  Request Spare Part / Tool
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#71717a', margin: '3px 0 0 0' }}>
+                  Submit request to Dispatcher for review and Admin approval.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsPartRequestModalOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#71717a', borderRadius: '8px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitPartRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Quick Select from existing catalog */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                  Select from Catalog (or enter custom part below)
+                </label>
+                <select
+                  value={partRequestForm.partId || ''}
+                  onChange={(e) => {
+                    const pid = e.target.value;
+                    if (!pid) {
+                      setPartRequestForm(prev => ({ ...prev, partId: '' }));
+                      return;
+                    }
+                    const selected = inventory.find(i => String(i.id) === String(pid));
+                    if (selected) {
+                      setPartRequestForm(prev => ({
+                        ...prev,
+                        partId: selected.id,
+                        partName: selected.partName || selected.name || '',
+                        category: selected.category || 'General',
+                        sku: selected.sku || '',
+                        unit: selected.unit || 'pcs'
+                      }));
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #e4e4e7',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    background: '#ffffff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">-- Choose from warehouse inventory (optional) --</option>
+                  {inventory.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.partName || p.name} ({p.sku || 'No SKU'}) — Available: {p.quantity} {p.unit || 'pcs'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Part Name */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                  Part / Item Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 1.5 Ton AC Capacitor 45uF or Copper Pipe 1/2 inch"
+                  value={partRequestForm.partName}
+                  onChange={(e) => setPartRequestForm(prev => ({ ...prev, partName: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #e4e4e7',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Category and SKU */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                    Category
+                  </label>
+                  <select
+                    value={partRequestForm.category}
+                    onChange={(e) => setPartRequestForm(prev => ({ ...prev, category: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 10px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      background: '#ffffff'
+                    }}
+                  >
+                    <option value="HVAC">Air Conditioning (HVAC)</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Appliance">Appliance</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                    SKU / Part Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CAP-AC-45"
+                    value={partRequestForm.sku}
+                    onChange={(e) => setPartRequestForm(prev => ({ ...prev, sku: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Quantity, Unit, Priority */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                    Quantity *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={partRequestForm.quantity}
+                    onChange={(e) => setPartRequestForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                    Unit
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="pcs, cylinders, etc."
+                    value={partRequestForm.unit}
+                    onChange={(e) => setPartRequestForm(prev => ({ ...prev, unit: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                    Priority
+                  </label>
+                  <select
+                    value={partRequestForm.priority}
+                    onChange={(e) => setPartRequestForm(prev => ({ ...prev, priority: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 10px',
+                      borderRadius: '10px',
+                      border: '1px solid #e4e4e7',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      background: '#ffffff'
+                    }}
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High (Urgent)</option>
+                    <option value="CRITICAL">Critical (Breakdown)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Linked Job / Work Order (Optional) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                  Link to Active Job / Work Order (Optional)
+                </label>
+                <select
+                  value={partRequestForm.workOrderId || ''}
+                  onChange={(e) => setPartRequestForm(prev => ({ ...prev, workOrderId: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #e4e4e7',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    background: '#ffffff'
+                  }}
+                >
+                  <option value="">-- Standalone Truck Re-stock (No specific job) --</option>
+                  {myJobs
+                    .filter(j => j.status !== 'CLOSED' && j.status !== 'CANCELLED')
+                    .map(j => (
+                      <option key={j.id} value={j.id}>
+                        {j.workOrderNumber} — {j.title} ({j.serviceLocationCity || 'On-site'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Short Reason */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#09090b', marginBottom: '4px' }}>
+                  Reason for Request *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Current van stock exhausted. Required for compressor capacitor replacement at Anna Nagar site."
+                  value={partRequestForm.reason}
+                  onChange={(e) => setPartRequestForm(prev => ({ ...prev, reason: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #e4e4e7',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsPartRequestModalOpen(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #e4e4e7',
+                    background: '#ffffff',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={partRequestLoading}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '9px 22px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#09090b',
+                    color: '#ffffff',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {partRequestLoading ? (
+                    'Submitting...'
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      <span>Submit Request</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

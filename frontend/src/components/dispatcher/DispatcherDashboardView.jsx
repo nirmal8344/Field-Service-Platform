@@ -18,7 +18,13 @@ import {
   X,
   ChevronRight,
   UserCheck,
-  Download
+  Download,
+  Send,
+  CheckCheck,
+  Boxes,
+  Package,
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useNotifications } from '../../context/useNotifications';
@@ -48,7 +54,17 @@ export default function DispatcherDashboardView({ currentTab = 'dispatcher-dashb
   const [technicians, setTechnicians] = useState([]);
   const [categories, setCategories] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [partRequests, setPartRequests] = useState([]);
   const [customers, setCustomers] = useState([]);
+
+  // Part Requests Dispatcher Tab & Modals
+  const [dispatcherInventorySubTab, setDispatcherInventorySubTab] = useState('CATALOG'); // 'CATALOG' | 'PART_REQUESTS'
+  const [forwardPartModal, setForwardPartModal] = useState(null); // partRequest object
+  const [dispatcherNotes, setDispatcherNotes] = useState('');
+  const [forwardLoading, setForwardLoading] = useState(false);
+  const [rejectPartModal, setRejectPartModal] = useState(null); // partRequest object
+  const [rejectPartReason, setRejectPartReason] = useState('');
+  const [rejectPartLoading, setRejectPartLoading] = useState(false);
 
   // Common Filters & Searches
   const [searchTerm, setSearchTerm] = useState('');
@@ -155,13 +171,14 @@ export default function DispatcherDashboardView({ currentTab = 'dispatcher-dashb
   // Data Loading
   const loadDispatcherData = useCallback(async () => {
     try {
-      const [reqs, wos, techs, cats, inv, custs] = await Promise.all([
+      const [reqs, wos, techs, cats, inv, custs, partReqs] = await Promise.all([
         api.getAllServiceRequests().catch(() => []),
         api.getAllWorkOrders().catch(() => []),
         api.getAllTechnicians().catch(() => []),
         api.getAllCategories().catch(() => []),
         api.getInventory().catch(() => []),
-        api.getAllCustomers().catch(() => [])
+        api.getAllCustomers().catch(() => []),
+        api.getPartRequests().catch(() => [])
       ]);
       setRequests(reqs || []);
       setWorkOrders(wos || []);
@@ -169,10 +186,47 @@ export default function DispatcherDashboardView({ currentTab = 'dispatcher-dashb
       setCategories(cats || []);
       setInventory(inv || []);
       setCustomers(custs || []);
+      setPartRequests(partReqs || []);
     } catch (err) {
       console.error('Error fetching dispatcher data:', err);
     }
   }, []);
+
+  const handleForwardPartRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!forwardPartModal) return;
+    setForwardLoading(true);
+    try {
+      await api.forwardPartRequest(forwardPartModal.id, { dispatcherNotes });
+      addToast(`Part request ${forwardPartModal.requestNumber} for "${forwardPartModal.partName}" forwarded to Administrator for approval!`, 'success', 'Request Forwarded');
+      setForwardPartModal(null);
+      setDispatcherNotes('');
+      await loadDispatcherData();
+    } catch (err) {
+      console.error('Failed to forward part request:', err);
+      addToast(err.message || 'Failed to forward part request.', 'error', 'Forwarding Failed');
+    } finally {
+      setForwardLoading(false);
+    }
+  };
+
+  const handleRejectPartRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!rejectPartModal) return;
+    setRejectPartLoading(true);
+    try {
+      await api.rejectPartRequest(rejectPartModal.id, { adminNotes: rejectPartReason || 'Rejected by dispatcher during preliminary review.' });
+      addToast(`Part request ${rejectPartModal.requestNumber} rejected.`, 'info', 'Request Rejected');
+      setRejectPartModal(null);
+      setRejectPartReason('');
+      await loadDispatcherData();
+    } catch (err) {
+      console.error('Failed to reject part request:', err);
+      addToast(err.message || 'Failed to reject part request.', 'error', 'Action Failed');
+    } finally {
+      setRejectPartLoading(false);
+    }
+  };
 
   const fetchRef = useRef(null);
   useLayoutEffect(() => {
@@ -2672,122 +2726,345 @@ export default function DispatcherDashboardView({ currentTab = 'dispatcher-dashb
       {/* ========================================================================= */}
       {activeSubTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
-                  Service Inventory & Parts Catalog ({inventory.length})
-                </h3>
-                <p style={{ fontSize: '0.8rem', color: '#71717a', margin: '2px 0 0 0' }}>
-                  Verify available stock for dispatch operations, minimum levels, and warehouse allocations
-                </p>
+          {/* Sub-navigation for Inventory Catalog vs Technician Part Requests */}
+          <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid #e4e4e7', paddingBottom: '12px', overflowX: 'auto' }}>
+            <button
+              onClick={() => setDispatcherInventorySubTab('CATALOG')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                background: dispatcherInventorySubTab === 'CATALOG' ? '#09090b' : '#f4f4f5',
+                color: dispatcherInventorySubTab === 'CATALOG' ? '#ffffff' : '#71717a',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Package size={16} />
+              Stock Inventory ({inventory.length})
+            </button>
+            <button
+              onClick={() => setDispatcherInventorySubTab('PART_REQUESTS')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                background: dispatcherInventorySubTab === 'PART_REQUESTS' ? '#09090b' : '#f4f4f5',
+                color: dispatcherInventorySubTab === 'PART_REQUESTS' ? '#ffffff' : '#71717a',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Send size={16} />
+              Technician Part Requests ({partRequests.length})
+              {partRequests.filter(p => p.status === 'PENDING').length > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '9999px', fontWeight: 800 }}>
+                  {partRequests.filter(p => p.status === 'PENDING').length} new
+                </span>
+              )}
+            </button>
+          </div>
+
+          {dispatcherInventorySubTab === 'CATALOG' && (
+            <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                    Service Inventory & Parts Catalog ({inventory.length})
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: '#71717a', margin: '2px 0 0 0' }}>
+                    Verify available stock for dispatch operations, minimum levels, and warehouse allocations
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ position: 'relative', minWidth: '220px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                    <input
+                      type="text"
+                      placeholder="Search parts, SKUs..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      style={{ width: '100%', height: '38px', padding: '0 12px 0 34px', borderRadius: '9999px', border: '1px solid #e4e4e7', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ position: 'relative', minWidth: '220px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
-                  <input
-                    type="text"
-                    placeholder="Search parts, SKUs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ width: '100%', height: '38px', padding: '0 12px 0 34px', borderRadius: '9999px', border: '1px solid #e4e4e7', fontSize: '0.82rem', boxSizing: 'border-box' }}
-                  />
+              {/* Inventory Alerts Banner if Low Stock */}
+              {lowStockParts.length > 0 && (
+                <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.82rem', color: '#92400e', fontWeight: 600 }}>
+                    {lowStockParts.length} part(s) are currently at or below minimum threshold! Consider replenishing before scheduling major installations.
+                  </div>
                 </div>
+              )}
+
+              <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
+                      <th style={{ padding: '12px 16px' }}>Part Name / SKU</th>
+                      <th style={{ padding: '12px 16px' }}>Category</th>
+                      <th style={{ padding: '12px 16px' }}>In Stock</th>
+                      <th style={{ padding: '12px 16px' }}>Min Stock</th>
+                      <th style={{ padding: '12px 16px' }}>Unit Cost</th>
+                      <th style={{ padding: '12px 16px' }}>Supplier / Warehouse</th>
+                      <th style={{ padding: '12px 16px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory
+                      .filter(item => {
+                        if (!searchTerm) return true;
+                        const q = searchTerm.toLowerCase();
+                        const name = (item.name || '').toLowerCase();
+                        const sku = (item.sku || '').toLowerCase();
+                        const cat = (item.category || '').toLowerCase();
+                        return name.includes(q) || sku.includes(q) || cat.includes(q);
+                      })
+                      .map(part => {
+                        const isLow = (part.quantity || 0) <= (part.minimumStock || 0);
+                        return (
+                          <tr key={part.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 700, color: '#09090b' }}>{part.name}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#71717a', fontFamily: 'monospace' }}>{part.sku}</div>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+                                {part.category || 'GENERAL'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                fontWeight: 800,
+                                fontSize: '0.9rem',
+                                color: isLow ? '#dc2626' : '#16a34a'
+                              }}>
+                                {part.quantity} {part.unit || 'pcs'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#71717a' }}>
+                              {part.minimumStock || 0} {part.unit || 'pcs'}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontWeight: 600, color: '#09090b' }}>
+                              ${Number(part.cost || 0).toFixed(2)}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#52525b' }}>
+                              <div>{part.supplier || 'Main Depot'}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#71717a' }}>{part.storageLocation || 'Aisle 1'}</div>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '9999px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                background: isLow ? '#fee2e2' : '#dcfce7',
+                                color: isLow ? '#991b1b' : '#166534'
+                              }}>
+                                {isLow ? 'LOW STOCK' : 'IN STOCK'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {inventory.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#71717a' }}>
+                          No inventory parts registered.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
 
-            {/* Inventory Alerts Banner if Low Stock */}
-            {lowStockParts.length > 0 && (
-              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-                <div style={{ fontSize: '0.82rem', color: '#92400e', fontWeight: 600 }}>
-                  {lowStockParts.length} part(s) are currently at or below minimum threshold! Consider replenishing before scheduling major installations.
+          {dispatcherInventorySubTab === 'PART_REQUESTS' && (
+            <div style={{ background: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #e4e4e7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                    Technician Part Requests ({partRequests.length})
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: '#71717a', margin: '2px 0 0 0' }}>
+                    Review part requests submitted by field technicians and forward to Administrator for approval
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={loadDispatcherData}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid #e4e4e7', background: '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <RefreshCw size={14} /> Refresh
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
-                    <th style={{ padding: '12px 16px' }}>Part Name / SKU</th>
-                    <th style={{ padding: '12px 16px' }}>Category</th>
-                    <th style={{ padding: '12px 16px' }}>In Stock</th>
-                    <th style={{ padding: '12px 16px' }}>Min Stock</th>
-                    <th style={{ padding: '12px 16px' }}>Unit Cost</th>
-                    <th style={{ padding: '12px 16px' }}>Supplier / Warehouse</th>
-                    <th style={{ padding: '12px 16px' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory
-                    .filter(item => {
-                      if (!searchTerm) return true;
-                      const q = searchTerm.toLowerCase();
-                      const name = (item.name || '').toLowerCase();
-                      const sku = (item.sku || '').toLowerCase();
-                      const cat = (item.category || '').toLowerCase();
-                      return name.includes(q) || sku.includes(q) || cat.includes(q);
-                    })
-                    .map(part => {
-                      const isLow = (part.quantity || 0) <= (part.minimumStock || 0);
+              <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e4e4e7', color: '#71717a', fontWeight: 600 }}>
+                      <th style={{ padding: '12px 16px' }}>Request #</th>
+                      <th style={{ padding: '12px 16px' }}>Technician</th>
+                      <th style={{ padding: '12px 16px' }}>Part & Qty</th>
+                      <th style={{ padding: '12px 16px' }}>Priority</th>
+                      <th style={{ padding: '12px 16px' }}>Reason / WO</th>
+                      <th style={{ padding: '12px 16px' }}>Status</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {partRequests.map(req => {
+                      const getStatusBadge = (st) => {
+                        switch (st) {
+                          case 'PENDING':
+                            return { bg: '#fef3c7', text: '#92400e', label: 'Pending Review' };
+                          case 'FORWARDED':
+                            return { bg: '#e0e7ff', text: '#3730a3', label: 'Forwarded to Admin' };
+                          case 'APPROVED':
+                            return { bg: '#dcfce7', text: '#166534', label: 'Approved' };
+                          case 'FULFILLED':
+                            return { bg: '#d1fae5', text: '#065f46', label: 'Fulfilled & Stocked' };
+                          case 'REJECTED':
+                            return { bg: '#fee2e2', text: '#991b1b', label: 'Rejected' };
+                          default:
+                            return { bg: '#f1f5f9', text: '#475569', label: st };
+                        }
+                      };
+                      const badge = getStatusBadge(req.status);
+
                       return (
-                        <tr key={part.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <tr key={req.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '12px 16px' }}>
-                            <div style={{ fontWeight: 700, color: '#09090b' }}>{part.name}</div>
-                            <div style={{ fontSize: '0.74rem', color: '#71717a', fontFamily: 'monospace' }}>{part.sku}</div>
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
-                              {part.category || 'GENERAL'}
-                            </span>
+                            <div style={{ fontWeight: 700, color: '#09090b', fontFamily: 'monospace' }}>{req.requestNumber}</div>
+                            <div style={{ fontSize: '0.72rem', color: '#71717a' }}>{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : ''}</div>
                           </td>
                           <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              fontWeight: 800,
-                              fontSize: '0.9rem',
-                              color: isLow ? '#dc2626' : '#16a34a'
-                            }}>
-                              {part.quantity} {part.unit || 'pcs'}
-                            </span>
+                            <div style={{ fontWeight: 600, color: '#09090b' }}>{req.technicianName}</div>
+                            {req.technicianPhone && (
+                              <div style={{ fontSize: '0.72rem', color: '#71717a' }}>{req.technicianPhone}</div>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 16px', color: '#71717a' }}>
-                            {part.minimumStock || 0} {part.unit || 'pcs'}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontWeight: 600, color: '#09090b' }}>
-                            ${Number(part.cost || 0).toFixed(2)}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#52525b' }}>
-                            <div>{part.supplier || 'Main Depot'}</div>
-                            <div style={{ fontSize: '0.72rem', color: '#71717a' }}>{part.storageLocation || 'Aisle 1'}</div>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontWeight: 700, color: '#09090b' }}>{req.partName}</div>
+                            <div style={{ fontSize: '0.76rem', color: '#2563eb', fontWeight: 600 }}>
+                              Qty: {req.quantityRequested} {req.partSku ? `(${req.partSku})` : ''}
+                            </div>
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <span style={{
                               padding: '2px 8px',
-                              borderRadius: '9999px',
+                              borderRadius: '6px',
                               fontSize: '0.72rem',
                               fontWeight: 700,
-                              background: isLow ? '#fee2e2' : '#dcfce7',
-                              color: isLow ? '#991b1b' : '#166534'
+                              background: req.priority === 'CRITICAL' ? '#fee2e2' : req.priority === 'HIGH' ? '#ffedd5' : '#f1f5f9',
+                              color: req.priority === 'CRITICAL' ? '#991b1b' : req.priority === 'HIGH' ? '#9a3412' : '#475569'
                             }}>
-                              {isLow ? 'LOW STOCK' : 'IN STOCK'}
+                              {req.priority || 'MEDIUM'}
                             </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', maxWidth: '240px' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#334155' }}>{req.reason}</div>
+                            {req.workOrderNumber && (
+                              <div style={{ fontSize: '0.72rem', color: '#71717a', marginTop: '2px' }}>WO: {req.workOrderNumber}</div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{
+                              padding: '3px 10px',
+                              borderRadius: '9999px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              background: badge.bg,
+                              color: badge.text
+                            }}>
+                              {badge.label}
+                            </span>
+                            {req.dispatcherNotes && (
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
+                                Disp: {req.dispatcherNotes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            {req.status === 'PENDING' ? (
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => {
+                                    setForwardPartModal(req);
+                                    setDispatcherNotes('');
+                                  }}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: '#2563eb',
+                                    color: '#ffffff',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Send size={12} /> Forward to Admin
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRejectPartModal(req);
+                                    setRejectPartReason('');
+                                  }}
+                                  style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #fecaca',
+                                    background: '#fee2e2',
+                                    color: '#991b1b',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : req.status === 'FORWARDED' ? (
+                              <span style={{ fontSize: '0.74rem', color: '#6366f1', fontWeight: 600 }}>Awaiting Admin</span>
+                            ) : (
+                              <span style={{ fontSize: '0.74rem', color: '#71717a' }}>Completed</span>
+                            )}
                           </td>
                         </tr>
                       );
                     })}
-                  {inventory.length === 0 && (
-                    <tr>
-                      <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#71717a' }}>
-                        No inventory parts registered.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    {partRequests.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#71717a' }}>
+                          No technician part requests recorded.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -3853,6 +4130,210 @@ export default function DispatcherDashboardView({ currentTab = 'dispatcher-dashb
                 />
               ))}
             </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* MODAL 7: FORWARD PART REQUEST TO ADMIN MODAL                             */}
+      {/* ========================================================================= */}
+      {forwardPartModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '520px',
+            padding: '24px',
+            border: '1px solid #e4e4e7',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={18} style={{ color: '#2563eb' }} />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                  Forward Request to Admin
+                </h3>
+              </div>
+              <button
+                onClick={() => setForwardPartModal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#71717a' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.84rem' }}>
+              <div><strong>Request #:</strong> {forwardPartModal.requestNumber}</div>
+              <div style={{ marginTop: '4px' }}><strong>Technician:</strong> {forwardPartModal.technicianName}</div>
+              <div style={{ marginTop: '4px' }}><strong>Part:</strong> {forwardPartModal.partName} &bull; <strong>Qty:</strong> {forwardPartModal.quantityRequested}</div>
+              <div style={{ marginTop: '4px' }}><strong>Reason:</strong> {forwardPartModal.reason}</div>
+            </div>
+
+            <form onSubmit={handleForwardPartRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Dispatcher Notes for Administrator (Optional)
+                </label>
+                <textarea
+                  value={dispatcherNotes}
+                  onChange={(e) => setDispatcherNotes(e.target.value)}
+                  placeholder="e.g. Critical part needed for scheduled repair on WO-102. Please approve procurement/stock addition."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.84rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setForwardPartModal(null)}
+                  style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forwardLoading}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#2563eb',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: forwardLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {forwardLoading ? 'Forwarding...' : 'Confirm & Forward to Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: REJECT PART REQUEST MODAL                                       */}
+      {/* ========================================================================= */}
+      {rejectPartModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '480px',
+            padding: '24px',
+            border: '1px solid #e4e4e7',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={18} style={{ color: '#dc2626' }} />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                  Reject Part Request
+                </h3>
+              </div>
+              <button
+                onClick={() => setRejectPartModal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#71717a' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.84rem', color: '#64748b', margin: 0 }}>
+              Are you sure you want to reject request <strong>{rejectPartModal.requestNumber}</strong> for <strong>{rejectPartModal.partName}</strong>?
+            </p>
+
+            <form onSubmit={handleRejectPartRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Rejection Reason / Note for Technician
+                </label>
+                <textarea
+                  value={rejectPartReason}
+                  onChange={(e) => setRejectPartReason(e.target.value)}
+                  placeholder="e.g. Alternative part in central depot should be used instead."
+                  rows={3}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.84rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRejectPartModal(null)}
+                  style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={rejectPartLoading}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#dc2626',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: rejectPartLoading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {rejectPartLoading ? 'Rejecting...' : 'Confirm Rejection'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
