@@ -17,6 +17,7 @@ public class AuditLogService {
         this.auditLogRepository = auditLogRepository;
     }
 
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void log(String userEmail, String userRole, String action, String entityName, String entityId, String details) {
         try {
             AuditLog log = new AuditLog(userEmail, userRole, action, entityName, entityId, details, "127.0.0.1");

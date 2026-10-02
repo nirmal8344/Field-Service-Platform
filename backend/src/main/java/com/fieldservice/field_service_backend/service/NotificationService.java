@@ -23,6 +23,7 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void createNotification(User user, String title, String message, NotificationType type, String linkUrl) {
         if (user == null) return;
         try {
@@ -38,14 +39,24 @@ public class NotificationService {
         }
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void notifyAdmins(String title, String message, NotificationType type, String linkUrl) {
-        userRepository.findByRole(com.fieldservice.field_service_backend.model.Role.ADMINISTRATOR)
-                .forEach(admin -> createNotification(admin, title, message, type, linkUrl));
+        try {
+            userRepository.findByRole(com.fieldservice.field_service_backend.model.Role.ADMINISTRATOR)
+                    .forEach(admin -> createNotification(admin, title, message, type, linkUrl));
+        } catch (Exception e) {
+            System.err.println("Failed to notify admins: " + e.getMessage());
+        }
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void notifyDispatchers(String title, String message, NotificationType type, String linkUrl) {
-        userRepository.findByRole(com.fieldservice.field_service_backend.model.Role.DISPATCHER)
-                .forEach(disp -> createNotification(disp, title, message, type, linkUrl));
+        try {
+            userRepository.findByRole(com.fieldservice.field_service_backend.model.Role.DISPATCHER)
+                    .forEach(disp -> createNotification(disp, title, message, type, linkUrl));
+        } catch (Exception e) {
+            System.err.println("Failed to notify dispatchers: " + e.getMessage());
+        }
     }
 
     public List<NotificationDTO> getUserNotifications(Long userId) {
