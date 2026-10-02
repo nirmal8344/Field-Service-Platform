@@ -47,49 +47,62 @@ public class PartRequestDTO {
     public PartRequestDTO(PartRequest pr) {
         this.id = pr.getId();
         this.requestNumber = pr.getRequestNumber();
-        if (pr.getPart() != null) {
-            this.partId = pr.getPart().getId();
-            this.partName = pr.getPart().getPartName();
-            this.category = pr.getPart().getCategory();
-            this.sku = pr.getPart().getSku();
-        } else {
-            this.partName = pr.getPartName();
-            this.category = pr.getCategory();
-            this.sku = pr.getSku();
-        }
+        this.partName = pr.getPartName();
+        this.category = pr.getCategory();
+        this.sku = pr.getSku();
         this.quantity = pr.getQuantity();
         this.unit = pr.getUnit();
         this.reason = pr.getReason();
         this.priority = pr.getPriority();
         this.status = pr.getStatus();
 
-        if (pr.getRequestedBy() != null) {
-            this.requestedByTechnicianId = pr.getRequestedBy().getId();
-            this.technicianEmployeeCode = pr.getRequestedBy().getEmployeeCode();
-        }
-        if (pr.getTechnicianUser() != null) {
-            this.technicianName = pr.getTechnicianUser().getFullName();
-            this.technicianEmail = pr.getTechnicianUser().getEmail();
-            this.technicianPhone = pr.getTechnicianUser().getPhoneNumber();
-        }
+        try {
+            if (pr.getPart() != null) {
+                this.partId = pr.getPart().getId();
+                if (pr.getPart().getPartName() != null) this.partName = pr.getPart().getPartName();
+                if (pr.getPart().getCategory() != null) this.category = pr.getPart().getCategory();
+                if (pr.getPart().getSku() != null) this.sku = pr.getPart().getSku();
+            }
+        } catch (Exception ignored) {}
 
-        if (pr.getWorkOrder() != null) {
-            this.workOrderId = pr.getWorkOrder().getId();
-            this.workOrderNumber = pr.getWorkOrder().getWorkOrderNumber();
-            this.workOrderTitle = pr.getWorkOrder().getTitle();
-        }
+        try {
+            if (pr.getRequestedBy() != null) {
+                this.requestedByTechnicianId = pr.getRequestedBy().getId();
+                this.technicianEmployeeCode = pr.getRequestedBy().getEmployeeCode();
+            }
+        } catch (Exception ignored) {}
 
-        if (pr.getForwardedBy() != null) {
-            this.forwardedByUserId = pr.getForwardedBy().getId();
-            this.forwardedByName = pr.getForwardedBy().getFullName();
-        }
+        try {
+            if (pr.getTechnicianUser() != null) {
+                this.technicianName = pr.getTechnicianUser().getFullName();
+                this.technicianEmail = pr.getTechnicianUser().getEmail();
+                this.technicianPhone = pr.getTechnicianUser().getPhoneNumber();
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (pr.getWorkOrder() != null) {
+                this.workOrderId = pr.getWorkOrder().getId();
+                this.workOrderNumber = pr.getWorkOrder().getWorkOrderNumber();
+                this.workOrderTitle = pr.getWorkOrder().getTitle();
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (pr.getForwardedBy() != null) {
+                this.forwardedByUserId = pr.getForwardedBy().getId();
+                this.forwardedByName = pr.getForwardedBy().getFullName();
+            }
+        } catch (Exception ignored) {}
         this.forwardedAt = pr.getForwardedAt();
         this.dispatcherNotes = pr.getDispatcherNotes();
 
-        if (pr.getReviewedBy() != null) {
-            this.reviewedByUserId = pr.getReviewedBy().getId();
-            this.reviewedByName = pr.getReviewedBy().getFullName();
-        }
+        try {
+            if (pr.getReviewedBy() != null) {
+                this.reviewedByUserId = pr.getReviewedBy().getId();
+                this.reviewedByName = pr.getReviewedBy().getFullName();
+            }
+        } catch (Exception ignored) {}
         this.reviewedAt = pr.getReviewedAt();
         this.adminNotes = pr.getAdminNotes();
 

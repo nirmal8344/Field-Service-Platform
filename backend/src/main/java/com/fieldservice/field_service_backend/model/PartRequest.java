@@ -14,7 +14,7 @@ public class PartRequest {
     @Column(nullable = false, unique = true, length = 50)
     private String requestNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "part_id")
     private Part part;
 
@@ -44,19 +44,19 @@ public class PartRequest {
     @Column(nullable = false, length = 30)
     private PartRequestStatus status = PartRequestStatus.PENDING;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "requested_by_technician_id")
     private Technician requestedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "technician_user_id", nullable = false)
     private User technicianUser;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "work_order_id")
     private WorkOrder workOrder;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "forwarded_by_user_id")
     private User forwardedBy;
 
@@ -65,7 +65,7 @@ public class PartRequest {
     @Column(columnDefinition = "TEXT")
     private String dispatcherNotes;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "reviewed_by_user_id")
     private User reviewedBy;
 

@@ -47,6 +47,7 @@ public class PartRequestService {
         this.auditLogService = auditLogService;
     }
 
+    @Transactional(readOnly = true)
     public List<PartRequestDTO> getAllRequests(String userEmail, Role role) {
         if (role == Role.TECHNICIAN) {
             User user = userRepository.findByEmail(userEmail)
@@ -60,6 +61,7 @@ public class PartRequestService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public PartRequestDTO getRequestById(Long id) {
         PartRequest pr = partRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Part request not found: " + id));
