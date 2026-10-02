@@ -369,7 +369,7 @@ public class SeedDataService implements CommandLineRunner {
                 "Master Bedroom AC Cooling Diagnosis", req1.getProblemDescription(), Priority.HIGH,
                 LocalDate.now(), LocalTime.of(9, 30), LocalTime.of(11, 30), techVignesh, dispatcher, WorkOrderStatus.IN_PROGRESS);
         wo1.setStartedAt(LocalDateTime.now().minusHours(1));
-        wo1.setDiagnosisNotes("Indoor coil blocked with dust. Low refrigerant pressure detected.");
+        wo1.setWorkPerformed("Indoor coil blocked with dust. Low refrigerant pressure detected.");
         workOrderRepository.save(wo1);
 
         // 2. Work Order: CLOSED / COMPLETED (Completed by Karthik Rajan)
