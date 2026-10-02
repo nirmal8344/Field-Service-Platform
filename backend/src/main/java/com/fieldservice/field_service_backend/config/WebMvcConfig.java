@@ -71,6 +71,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/register",
                         "/api/upload/files/**",
                         "/api/health",
+                        "/api/seed",
                         "/error"
                 );
     }
