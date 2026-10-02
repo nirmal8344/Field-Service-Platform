@@ -69,8 +69,11 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
 
   const categoryIconMap = {
     'AC Repair': { icon: Wind, desc: 'Jet pump wash, gas recharge & maintenance' },
-    'Electrical': { icon: Zap, desc: 'MCB switches, wiring, appliances & lights' },
-    'Plumbing': { icon: Wrench, desc: 'Leakages, water pumps, taps & drainage' },
+    'Air Conditioning': { icon: Wind, desc: 'Jet pump wash, gas recharge, AC repair & maintenance' },
+    'Electrical': { icon: Zap, desc: 'MCB switches, wiring, fan installations & lights' },
+    'Plumbing': { icon: Wrench, desc: 'Leakages, water pumps, taps, tanks & drainage' },
+    'Appliance': { icon: Cpu, desc: 'Washing machines, fridges, microwaves & geysers' },
+    'Home Maintenance': { icon: Hammer, desc: 'Painting, carpentry, door repairs & general maintenance' },
     'Carpentry': { icon: Hammer, desc: 'Furniture, lock fittings & woodwork' },
     'CCTV & Security': { icon: Shield, desc: 'IP security cameras & smart locks' },
     'Solar Services': { icon: Sun, desc: 'Solar arrays, inverters & cleaning' },
