@@ -34,6 +34,9 @@ public class SeedDataService implements CommandLineRunner {
     private final InAppNotificationRepository notificationRepository;
     private final AuditLogRepository auditLogRepository;
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     @Value("${app.seed.enabled:true}")
     private boolean seedEnabled;
 
@@ -87,6 +90,40 @@ public class SeedDataService implements CommandLineRunner {
         }
 
         System.out.println(">>> Checking & Initializing FieldHub Production Master & Seed Data (Idempotent, force=" + force + ")...");
+
+        try {
+            if (entityManager != null) {
+                entityManager.createNativeQuery(
+                    "CREATE TABLE IF NOT EXISTS part_requests (" +
+                    "id BIGSERIAL PRIMARY KEY, " +
+                    "request_number VARCHAR(50) NOT NULL UNIQUE, " +
+                    "part_id BIGINT, " +
+                    "part_name VARCHAR(150) NOT NULL, " +
+                    "category VARCHAR(100), " +
+                    "sku VARCHAR(50), " +
+                    "quantity INTEGER NOT NULL, " +
+                    "unit VARCHAR(20) DEFAULT 'pcs', " +
+                    "reason TEXT NOT NULL, " +
+                    "priority VARCHAR(30) DEFAULT 'MEDIUM', " +
+                    "status VARCHAR(30) NOT NULL DEFAULT 'PENDING', " +
+                    "requested_by_technician_id BIGINT, " +
+                    "technician_user_id BIGINT NOT NULL, " +
+                    "work_order_id BIGINT, " +
+                    "forwarded_by_user_id BIGINT, " +
+                    "forwarded_at TIMESTAMP, " +
+                    "dispatcher_notes TEXT, " +
+                    "reviewed_by_user_id BIGINT, " +
+                    "reviewed_at TIMESTAMP, " +
+                    "admin_notes TEXT, " +
+                    "created_at TIMESTAMP NOT NULL DEFAULT NOW(), " +
+                    "updated_at TIMESTAMP NOT NULL DEFAULT NOW()" +
+                    ")"
+                ).executeUpdate();
+                entityManager.createNativeQuery("ALTER TABLE in_app_notifications DROP CONSTRAINT IF EXISTS in_app_notifications_type_check").executeUpdate();
+            }
+        } catch (Exception e) {
+            System.err.println("Schema auto-creation notice: " + e.getMessage());
+        }
 
         // 1. Core Master Skills
         Skill sElec = findOrCreateSkill("Electrical Engineering", "Wiring, Circuit breakers, Load testing, Switchboards", "Electrical");
