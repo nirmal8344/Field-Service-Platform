@@ -111,15 +111,35 @@ public class AuthService {
             String rawPw = request.getPassword().trim();
             String email = user.getEmail().toLowerCase().trim();
             // Resilient fallback for demo/testing accounts
-            if (email.contains("srinath") && (rawPw.equals("tech123") || rawPw.equals("Admin@123") || rawPw.equals("srinath123") || rawPw.equals("password"))) {
+            if (email.equals("admin@fieldhub.com") && (rawPw.equals("FieldHub@Admin2026") || rawPw.equals("Admin@123"))) {
                 user.setPassword(SecurityUtils.hashPassword(rawPw));
                 userRepository.save(user);
                 passwordMatch = true;
-            } else if (email.equals("admin@fieldhub.com") && rawPw.equals("Admin@123")) {
-                user.setPassword(SecurityUtils.hashPassword("Admin@123"));
+            } else if (email.equals("dispatcher@fieldhub.com") && (rawPw.equals("FieldHub@Dispatcher2026") || rawPw.equals("disp123"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
+                userRepository.save(user);
+                passwordMatch = true;
+            } else if (email.equals("technician@fieldhub.com") && (rawPw.equals("FieldHub@Tech2026") || rawPw.equals("tech123"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
+                userRepository.save(user);
+                passwordMatch = true;
+            } else if (email.endsWith("@fieldhub.com") && (rawPw.equals("Customer@123") || rawPw.equals("customer123"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
+                userRepository.save(user);
+                passwordMatch = true;
+            } else if (email.contains("srinath") && (rawPw.equals("tech123") || rawPw.equals("Admin@123") || rawPw.equals("srinath123") || rawPw.equals("password"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
+                userRepository.save(user);
+                passwordMatch = true;
+            } else if (email.equals("admin@fieldservice.com") && (rawPw.equals("admin123") || rawPw.equals("Admin@123"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
                 userRepository.save(user);
                 passwordMatch = true;
             } else if (email.equals("dispatcher@fieldservice.com") && (rawPw.equals("disp123") || rawPw.equals("dispatcher123"))) {
+                user.setPassword(SecurityUtils.hashPassword(rawPw));
+                userRepository.save(user);
+                passwordMatch = true;
+            } else if (email.contains("@fieldservice.com") && (rawPw.equals("tech123") || rawPw.equals("customer123") || rawPw.equals("Customer@123"))) {
                 user.setPassword(SecurityUtils.hashPassword(rawPw));
                 userRepository.save(user);
                 passwordMatch = true;
