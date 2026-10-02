@@ -43,8 +43,17 @@ class FieldServiceIntegrationTests {
 
     // Helper to ensure test prerequisites exist
     private User ensureUser(String email, String name, Role role) {
-        return userRepository.findByEmail(email).orElseGet(() -> {
-            User u = new User(email, SecurityUtils.hashPassword("Password123!"), name, "+91 9999988888", role);
+        return ensureUserWithPassword(email, "Password123!", name, role);
+    }
+
+    private User ensureUserWithPassword(String email, String rawPassword, String name, Role role) {
+        return userRepository.findByEmail(email).map(existing -> {
+            existing.setFullName(name);
+            existing.setRole(role);
+            existing.setPassword(SecurityUtils.hashPassword(rawPassword));
+            return userRepository.save(existing);
+        }).orElseGet(() -> {
+            User u = new User(email, SecurityUtils.hashPassword(rawPassword), name, "+91 9999988888", role);
             return userRepository.save(u);
         });
     }
@@ -164,6 +173,43 @@ class FieldServiceIntegrationTests {
         badReq.setEmail("testauth@fieldservice.com");
         badReq.setPassword("WrongPassword!");
         assertThrows(Exception.class, () -> authService.login(badReq));
+    }
+
+    @Test
+    @Order(5)
+    @Transactional
+    void testDemoAccountsAuthentication() {
+        // 1. Administrator Account
+        ensureUserWithPassword("administrator@fieldhub.com", "FieldHub@Admin2026", "System Administrator", Role.ADMINISTRATOR);
+        LoginRequest adminReq = new LoginRequest();
+        adminReq.setEmail("administrator@fieldhub.com");
+        adminReq.setPassword("FieldHub@Admin2026");
+        AuthResponse adminResp = authService.login(adminReq);
+        assertNotNull(adminResp);
+        assertNotNull(adminResp.getToken());
+        assertEquals(Role.ADMINISTRATOR, adminResp.getUser().getRole());
+
+        // 2. Dispatcher Account
+        ensureUserWithPassword("dispatcher.demo@fieldhub.com", "FieldHub@Dispatcher2026", "Demo Dispatcher", Role.DISPATCHER);
+        LoginRequest dispReq = new LoginRequest();
+        dispReq.setEmail("dispatcher.demo@fieldhub.com");
+        dispReq.setPassword("FieldHub@Dispatcher2026");
+        AuthResponse dispResp = authService.login(dispReq);
+        assertNotNull(dispResp);
+        assertEquals(Role.DISPATCHER, dispResp.getUser().getRole());
+
+        // 3. Technician Account
+        User techUser = ensureUserWithPassword("technician.demo@fieldhub.com", "FieldHub@Tech2026", "Demo Technician", Role.TECHNICIAN);
+        technicianRepository.findByUserId(techUser.getId()).orElseGet(() -> {
+            Technician t = new Technician(techUser, "TECH-DEMO", "HVAC & Electrical", 5);
+            return technicianRepository.save(t);
+        });
+        LoginRequest techReq = new LoginRequest();
+        techReq.setEmail("technician.demo@fieldhub.com");
+        techReq.setPassword("FieldHub@Tech2026");
+        AuthResponse techResp = authService.login(techReq);
+        assertNotNull(techResp);
+        assertEquals(Role.TECHNICIAN, techResp.getUser().getRole());
     }
 
     // ======================== 2. PHOTO UPLOAD & STORAGE TESTS ========================

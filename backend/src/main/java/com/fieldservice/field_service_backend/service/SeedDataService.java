@@ -130,15 +130,15 @@ public class SeedDataService implements CommandLineRunner {
         findOrCreateServiceType(catMaint, "General Maintenance", "MAINT_GENERAL", 3.0, 1499.0, "Multi-point home checkup covering fixtures, screws, caulking, and seals");
 
         // 3. Administrator Accounts
-        User adminFieldHub = findOrCreateUser("admin@fieldhub.com", "FieldHub@Admin2026", "Administrator", "+91 9876543210", Role.ADMINISTRATOR);
+        User adminFieldHub = findOrCreateUser("administrator@fieldhub.com", "FieldHub@Admin2026", "System Administrator", "+91 9876543210", Role.ADMINISTRATOR);
         User adminLegacy = findOrCreateUser("admin@fieldservice.com", "admin123", "Senthil Nathan", "+91 9876543211", Role.ADMINISTRATOR);
 
         // 4. Dispatcher Accounts
-        User dispFieldHub = findOrCreateUser("dispatcher@fieldhub.com", "FieldHub@Dispatcher2026", "Suresh Kumar", "+91 98400 11223", Role.DISPATCHER);
+        User dispFieldHub = findOrCreateUser("dispatcher.demo@fieldhub.com", "FieldHub@Dispatcher2026", "Suresh Kumar", "+91 98400 11223", Role.DISPATCHER);
         User dispLegacy = findOrCreateUser("dispatcher@fieldservice.com", "disp123", "Deepa Jayaram", "+91 98400 11224", Role.DISPATCHER);
 
         // 5. Technician Accounts & Fleets
-        User techUserFieldHub = findOrCreateUser("technician@fieldhub.com", "FieldHub@Tech2026", "Vignesh Kumar", "+91 98401 55667", Role.TECHNICIAN);
+        User techUserFieldHub = findOrCreateUser("technician.demo@fieldhub.com", "FieldHub@Tech2026", "Vignesh Kumar", "+91 98401 55667", Role.TECHNICIAN);
         Technician techVignesh = findOrCreateTechnician(techUserFieldHub, "TECH-100", "HVAC & Electrical", 5, 4.9, 45, Set.of(sAC, sElec));
 
         User techUserKarthik = findOrCreateUser("karthik.rajan@fieldservice.com", "tech123", "Karthik Rajan", "+91 98401 22334", Role.TECHNICIAN);
@@ -229,7 +229,7 @@ public class SeedDataService implements CommandLineRunner {
         findOrCreateNotification(adminFieldHub, "Low Stock Alert: R32 Refrigerant Gas", "R32 gas cylinder stock is nearing reorder threshold.", NotificationType.LOW_STOCK, "/admin/inventory");
 
         // 10. Audit Log
-        auditLogRepository.save(new AuditLog("admin@fieldhub.com", "ADMINISTRATOR", "SYSTEM_BOOTSTRAP", "System", "1", "Initialized and verified FieldHub Tamil Nadu master catalog and demo seed data", "127.0.0.1"));
+        auditLogRepository.save(new AuditLog("administrator@fieldhub.com", "ADMINISTRATOR", "SYSTEM_BOOTSTRAP", "System", "1", "Initialized and verified FieldHub Tamil Nadu master catalog and demo seed data", "127.0.0.1"));
 
         System.out.println(">>> FieldHub Production Master & Seed Data Initialized Successfully!");
     }
@@ -337,7 +337,7 @@ public class SeedDataService implements CommandLineRunner {
         return partRepository.findBySku(sku).orElseGet(() -> {
             Part p = new Part(name, cat, sku, qty, min, unit, cost, supplier, location);
             p = partRepository.save(p);
-            inventoryTransactionRepository.save(new InventoryTransaction(p, TransactionType.ADDED, qty, cost, "admin@fieldhub.com", null, "Initial Seed Stock"));
+            inventoryTransactionRepository.save(new InventoryTransaction(p, TransactionType.ADDED, qty, cost, "administrator@fieldhub.com", null, "Initial Seed Stock"));
             return p;
         });
     }
