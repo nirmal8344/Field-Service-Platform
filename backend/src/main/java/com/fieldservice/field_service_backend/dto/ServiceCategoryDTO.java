@@ -24,9 +24,7 @@ public class ServiceCategoryDTO {
         this.icon = category.getIcon();
         this.description = category.getDescription();
         this.active = category.isActive();
-        if (category.getServiceTypes() != null) {
-            this.serviceTypes = category.getServiceTypes().stream().map(ServiceTypeDTO::new).collect(Collectors.toList());
-        }
+        this.serviceTypes = new ArrayList<>();
     }
 
     public Long getId() { return id; }

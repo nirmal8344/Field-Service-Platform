@@ -279,7 +279,9 @@ export default function CreateServiceRequestModal({ isOpen, onClose, onCreated, 
               >
                 <option value="">General Service / Diagnostic</option>
                 {serviceTypes.map(st => (
-                  <option key={st.id} value={st.id}>{st.name} ({st.estimatedDurationHours || 1}h)</option>
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.estimatedHours || st.estimatedDurationHours || 1}h{st.basePrice ? ` • ₹${st.basePrice}` : ''})
+                  </option>
                 ))}
               </select>
             </div>

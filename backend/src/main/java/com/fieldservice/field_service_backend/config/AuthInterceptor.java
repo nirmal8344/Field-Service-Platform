@@ -21,6 +21,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         String path = request.getRequestURI();
+        boolean isPublicGet = "GET".equalsIgnoreCase(request.getMethod()) && 
+            (path.startsWith("/api/categories") || path.startsWith("/api/skills"));
+
         // Public endpoints
         if (path.startsWith("/api/auth/login") || 
             path.startsWith("/api/auth/register") || 
@@ -32,6 +35,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || authHeader.trim().isEmpty()) {
+            if (isPublicGet) {
+                return true;
+            }
             throw new UnauthorizedException("Authentication token is required for this endpoint");
         }
 
