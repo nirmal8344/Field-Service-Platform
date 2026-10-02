@@ -223,15 +223,47 @@ public class SeedDataService implements CommandLineRunner {
         findOrCreatePart("Geyser 2000W Heating Element Copper", "Appliance", "ELM-GEY-2000", 20, 5, "pcs", 580.0, "Racold Spares Chennai", "Shelf G-1");
         findOrCreatePart("Premium Anti-Fungal Wall Putty 20kg", "Maintenance", "PTY-WALL-20K", 15, 4, "bags", 750.0, "Asian Paints Hosur", "Paint Storage Bay");
 
-        // 8. Sample Service Requests & Work Orders
+        // 8. Sample Service Requests & Work Orders (idempotent by WO number)
         seedSampleRequestsAndWorkOrders(cust1, loc1, cust2, loc2, cust3, loc3, cust4, loc4,
+                cust5, loc5, cust6, loc6, cust7, loc7, cust8, loc8, cust9, loc9, cust10, loc10,
                 catAC, catElec, catPlumb, catApp, catMaint,
-                techVignesh, techKarthik, techSrinath, dispFieldHub);
+                techVignesh, techKarthik, techSuresh, techSaravanan, techDinesh, techPraveen, techSrinath,
+                dispFieldHub);
 
-        // 9. In-App Notifications
+        // 9. In-App Notifications for ALL roles
+        // Customer notifications
         findOrCreateNotification(custUser1, "Welcome to FieldHub", "Your account is verified. You can book verified technicians across Tamil Nadu.", NotificationType.SYSTEM, "/customer/dashboard");
+        findOrCreateNotification(custUser1, "Service Request Confirmed", "Your AC service request for Anna Nagar has been received and is being assigned.", NotificationType.SYSTEM, "/customer/requests");
+        findOrCreateNotification(custUser1, "Technician On The Way", "Vignesh Kumar is en route to your location for AC cooling diagnosis.", NotificationType.ASSIGNMENT, "/customer/active");
+        findOrCreateNotification(custUser2, "Welcome to FieldHub", "Your business account is verified. Book commercial service visits anytime.", NotificationType.SYSTEM, "/customer/dashboard");
+        findOrCreateNotification(custUser2, "Service Completed", "Your MCB replacement in Salem showroom has been completed successfully.", NotificationType.COMPLETION, "/customer/history");
+        findOrCreateNotification(custUser3, "Welcome to FieldHub", "Your corporate account is now active. Schedule maintenance visits for your Coimbatore office.", NotificationType.SYSTEM, "/customer/dashboard");
+        findOrCreateNotification(custUser4, "Service Request Received", "Your washing machine repair request for Madurai store is pending assignment.", NotificationType.SYSTEM, "/customer/requests");
+        findOrCreateNotification(custUser5, "Welcome to FieldHub", "Your residential account is active. Book home services across Tamil Nadu.", NotificationType.SYSTEM, "/customer/dashboard");
+
+        // Technician notifications
         findOrCreateNotification(techUserFieldHub, "New Work Order Assigned", "You have been assigned to service request at Anna Nagar, Chennai.", NotificationType.ASSIGNMENT, "/technician/jobs");
+        findOrCreateNotification(techUserFieldHub, "Upcoming Job Tomorrow", "AC installation scheduled for tomorrow at Tidel Park, Chennai. Please confirm availability.", NotificationType.ASSIGNMENT, "/technician/upcoming");
+        findOrCreateNotification(techUserFieldHub, "Job Completed Successfully", "Great work! Your completed job at Salem received a 5-star rating.", NotificationType.COMPLETION, "/technician/history");
+        findOrCreateNotification(techUserFieldHub, "Schedule Update", "Your upcoming plumbing job at Coimbatore has been rescheduled to next week.", NotificationType.RESCHEDULE, "/technician/upcoming");
+        findOrCreateNotification(techUserFieldHub, "Parts Restocked", "R32 Refrigerant Gas cylinders have been restocked in Warehouse Bay.", NotificationType.SYSTEM, "/technician/inventory");
+        findOrCreateNotification(techUserKarthik, "New Work Order Assigned", "Emergency MCB replacement assigned at Salem showroom.", NotificationType.ASSIGNMENT, "/technician/jobs");
+        findOrCreateNotification(techUserKarthik, "Customer Feedback Received", "You received a 5-star rating for the Salem MCB replacement job!", NotificationType.COMPLETION, "/technician/history");
+
+        // Dispatcher notifications
+        findOrCreateNotification(dispFieldHub, "New Service Request", "Unassigned service request from Suresh Babu in Madurai. Priority: HIGH.", NotificationType.SYSTEM, "/dispatcher/requests");
+        findOrCreateNotification(dispFieldHub, "SLA Warning", "Work order WO-20261002-1001 is approaching SLA deadline. Review immediately.", NotificationType.SLA_ALERT, "/dispatcher/work-orders");
+        findOrCreateNotification(dispFieldHub, "Technician Available", "Praveen Chandran is now available for new assignments in Tiruppur region.", NotificationType.SYSTEM, "/dispatcher/scheduling");
+        findOrCreateNotification(dispFieldHub, "Job Completed", "Karthik Rajan completed MCB replacement in Salem. Customer verified.", NotificationType.COMPLETION, "/dispatcher/work-orders");
+        findOrCreateNotification(dispFieldHub, "Schedule Conflict", "Two overlapping jobs detected for Srinath on tomorrow's schedule.", NotificationType.RESCHEDULE, "/dispatcher/scheduling");
+
+        // Administrator notifications
         findOrCreateNotification(adminFieldHub, "Low Stock Alert: R32 Refrigerant Gas", "R32 gas cylinder stock is nearing reorder threshold.", NotificationType.LOW_STOCK, "/admin/inventory");
+        findOrCreateNotification(adminFieldHub, "New Technician Onboarded", "Praveen Chandran has been registered and activated as TECH-105.", NotificationType.SYSTEM, "/admin/users");
+        findOrCreateNotification(adminFieldHub, "Weekly Report Ready", "FieldHub weekly operations report for Tamil Nadu region is available.", NotificationType.SYSTEM, "/admin/reports");
+        findOrCreateNotification(adminFieldHub, "System Health: All Green", "All 7 technicians active. 5 service categories operational. 23 service types available.", NotificationType.SYSTEM, "/admin/dashboard");
+        findOrCreateNotification(adminFieldHub, "Critical SLA Breach", "Work order in Madurai has breached response SLA. Immediate attention required.", NotificationType.SLA_ALERT, "/admin/work-orders");
+        findOrCreateNotification(adminFieldHub, "Revenue Milestone", "FieldHub Tamil Nadu operations crossed ₹50,000 in completed service revenue.", NotificationType.SYSTEM, "/admin/reports");
 
         // 10. Audit Log
         auditLogRepository.save(new AuditLog("administrator@fieldhub.com", "ADMINISTRATOR", "SYSTEM_BOOTSTRAP", "System", "1", "Initialized and verified FieldHub Tamil Nadu master catalog and demo seed data", "127.0.0.1"));
@@ -355,53 +387,272 @@ public class SeedDataService implements CommandLineRunner {
         }
     }
 
-    private void seedSampleRequestsAndWorkOrders(Customer cust1, ServiceLocation loc1,
-                                                 Customer cust2, ServiceLocation loc2,
-                                                 Customer cust3, ServiceLocation loc3,
-                                                 Customer cust4, ServiceLocation loc4,
-                                                 ServiceCategory catAC, ServiceCategory catElec,
-                                                 ServiceCategory catPlumb, ServiceCategory catApp,
-                                                 ServiceCategory catMaint,
-                                                 Technician techVignesh, Technician techKarthik,
-                                                 Technician techSrinath, User dispatcher) {
-        if (workOrderRepository.count() > 0) {
-            return;
+    /** Check if a work order with the given number already exists */
+    private boolean workOrderExists(String woNumber) {
+        return workOrderRepository.findAll().stream()
+                .anyMatch(wo -> woNumber.equals(wo.getWorkOrderNumber()));
+    }
+
+    private void seedSampleRequestsAndWorkOrders(
+            Customer cust1, ServiceLocation loc1, Customer cust2, ServiceLocation loc2,
+            Customer cust3, ServiceLocation loc3, Customer cust4, ServiceLocation loc4,
+            Customer cust5, ServiceLocation loc5, Customer cust6, ServiceLocation loc6,
+            Customer cust7, ServiceLocation loc7, Customer cust8, ServiceLocation loc8,
+            Customer cust9, ServiceLocation loc9, Customer cust10, ServiceLocation loc10,
+            ServiceCategory catAC, ServiceCategory catElec,
+            ServiceCategory catPlumb, ServiceCategory catApp, ServiceCategory catMaint,
+            Technician techVignesh, Technician techKarthik, Technician techSuresh,
+            Technician techSaravanan, Technician techDinesh, Technician techPraveen,
+            Technician techSrinath, User dispatcher) {
+
+        // ── TODAY'S JOBS ──────────────────────────────────────────────────
+        // WO-1001: IN_PROGRESS — Vignesh — AC Cooling in Chennai
+        if (!workOrderExists("WO-20261002-1001")) {
+            ServiceRequest req = createRequest(cust1, loc1, catAC,
+                    "Split AC in master bedroom not cooling effectively. Airflow is weak.", Priority.HIGH,
+                    LocalDate.now(), "09:00 AM - 12:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20261002-1001", req, cust1, loc1, catAC,
+                    "Master Bedroom AC Cooling Diagnosis", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now(), LocalTime.of(9, 30), LocalTime.of(11, 30), techVignesh, dispatcher, WorkOrderStatus.IN_PROGRESS);
+            wo.setStartedAt(LocalDateTime.now().minusHours(1));
+            wo.setWorkPerformed("Indoor coil blocked with dust. Low refrigerant pressure detected.");
+            workOrderRepository.save(wo);
         }
 
-        // 1. Work Order: IN_PROGRESS (Assigned to Vignesh Kumar)
-        ServiceRequest req1 = createRequest(cust1, loc1, catAC, "Split AC in master bedroom not cooling effectively. Airflow is weak.", Priority.HIGH, LocalDate.now(), "09:00 AM - 12:00 PM");
-        WorkOrder wo1 = createWorkOrderRecord("WO-20261002-1001", req1, cust1, loc1, catAC,
-                "Master Bedroom AC Cooling Diagnosis", req1.getProblemDescription(), Priority.HIGH,
-                LocalDate.now(), LocalTime.of(9, 30), LocalTime.of(11, 30), techVignesh, dispatcher, WorkOrderStatus.IN_PROGRESS);
-        wo1.setStartedAt(LocalDateTime.now().minusHours(1));
-        wo1.setWorkPerformed("Indoor coil blocked with dust. Low refrigerant pressure detected.");
-        workOrderRepository.save(wo1);
+        // WO-1004: ASSIGNED — Vignesh — Electrical inspection at Tidel Park (today afternoon)
+        if (!workOrderExists("WO-20261002-1004")) {
+            ServiceRequest req = createRequest(cust1, loc1b(cust1), catElec,
+                    "Office lighting panel flickering intermittently during peak hours at Tidel Park.", Priority.MEDIUM,
+                    LocalDate.now(), "02:00 PM - 05:00 PM");
+            createWorkOrderRecord("WO-20261002-1004", req, cust1, loc1b(cust1), catElec,
+                    "Office Lighting Panel Inspection", req.getProblemDescription(), Priority.MEDIUM,
+                    LocalDate.now(), LocalTime.of(14, 0), LocalTime.of(16, 30), techVignesh, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
 
-        // 2. Work Order: CLOSED / COMPLETED (Completed by Karthik Rajan)
-        ServiceRequest req2 = createRequest(cust2, loc2, catElec, "Main MCB tripping repeatedly under load in Salem showroom.", Priority.CRITICAL, LocalDate.now().minusDays(1), "02:00 PM - 04:00 PM");
-        WorkOrder wo2 = createWorkOrderRecord("WO-20261001-1002", req2, cust2, loc2, catElec,
-                "Main MCB Distribution Box Replacement", req2.getProblemDescription(), Priority.CRITICAL,
-                LocalDate.now().minusDays(1), LocalTime.of(14, 0), LocalTime.of(15, 30), techKarthik, dispatcher, WorkOrderStatus.CLOSED);
-        wo2.setStartedAt(LocalDateTime.now().minusDays(1).withHour(14).withMinute(0));
-        wo2.setCompletedAt(LocalDateTime.now().minusDays(1).withHour(15).withMinute(15));
-        wo2.setVerifiedAt(LocalDateTime.now().minusDays(1).withHour(16).withMinute(0));
-        wo2.setClosedAt(LocalDateTime.now().minusDays(1).withHour(16).withMinute(0));
-        wo2.setWorkPerformed("Replaced faulty 32A MCB with Siemens 32A DP MCB. Balanced phase loads across phases.");
-        wo2.setTotalAmount(1250.0);
-        wo2.setAmountPaid(1250.0);
-        workOrderRepository.save(wo2);
+        // WO-1005: ACCEPTED — Vignesh — Plumbing at Erode (today)
+        if (!workOrderExists("WO-20261002-1005")) {
+            ServiceRequest req = createRequest(cust6, loc6, catPlumb,
+                    "Warehouse overhead tank leaking at junction pipe, water pooling near entrance.", Priority.HIGH,
+                    LocalDate.now(), "11:00 AM - 02:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20261002-1005", req, cust6, loc6, catPlumb,
+                    "Warehouse Water Tank Leak Repair", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now(), LocalTime.of(11, 0), LocalTime.of(13, 30), techDinesh, dispatcher, WorkOrderStatus.ACCEPTED);
+            workOrderRepository.save(wo);
+        }
 
-        CustomerFeedback fb = new CustomerFeedback(wo2, cust2, 5, "Prompt emergency electrical restoration in Salem!", "EXCELLENT");
-        feedbackRepository.save(fb);
+        // ── UPCOMING JOBS ─────────────────────────────────────────────────
+        // WO-1006: ASSIGNED — Vignesh — AC Installation at Coimbatore (tomorrow)
+        if (!workOrderExists("WO-20261003-1006")) {
+            ServiceRequest req = createRequest(cust3, loc3, catAC,
+                    "New 2-ton split AC installation required in server room. Wall mounting and copper piping needed.", Priority.HIGH,
+                    LocalDate.now().plusDays(1), "09:00 AM - 01:00 PM");
+            createWorkOrderRecord("WO-20261003-1006", req, cust3, loc3, catAC,
+                    "Server Room 2-Ton AC Installation", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now().plusDays(1), LocalTime.of(9, 0), LocalTime.of(13, 0), techVignesh, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
 
-        // 3. Work Order: ASSIGNED (Scheduled for Srinath)
-        ServiceRequest req3 = createRequest(cust3, loc3, catPlumb, "Underground pipe joint leak near pump room in Coimbatore.", Priority.MEDIUM, LocalDate.now().plusDays(1), "10:00 AM - 01:00 PM");
-        createWorkOrderRecord("WO-20261003-1003", req3, cust3, loc3, catPlumb,
-                "Pump Room Pipe Joint Leak Repair", req3.getProblemDescription(), Priority.MEDIUM,
-                LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(12, 30), techSrinath, dispatcher, WorkOrderStatus.ASSIGNED);
+        // WO-1007: SCHEDULED — Vignesh — Appliance repair at Madurai (day after tomorrow)
+        if (!workOrderExists("WO-20261004-1007")) {
+            ServiceRequest req = createRequest(cust4, loc4, catApp,
+                    "Commercial refrigerator compressor making loud rattling noise during startup.", Priority.MEDIUM,
+                    LocalDate.now().plusDays(2), "10:00 AM - 01:00 PM");
+            createWorkOrderRecord("WO-20261004-1007", req, cust4, loc4, catApp,
+                    "Commercial Refrigerator Compressor Repair", req.getProblemDescription(), Priority.MEDIUM,
+                    LocalDate.now().plusDays(2), LocalTime.of(10, 0), LocalTime.of(13, 0), techPraveen, dispatcher, WorkOrderStatus.SCHEDULED);
+        }
 
-        // 4. Service Request: REQUESTED / PENDING (Awaiting Dispatcher Assignment)
-        createRequest(cust4, loc4, catApp, "Front-load washing machine displaying drain error code E03 in Madurai store.", Priority.HIGH, LocalDate.now().plusDays(1), "03:00 PM - 06:00 PM");
+        // WO-1008: ASSIGNED — Vignesh — Home Maintenance at Trichy (3 days out)
+        if (!workOrderExists("WO-20261005-1008")) {
+            ServiceRequest req = createRequest(cust5, loc5, catMaint,
+                    "Interior wall repainting needed in 3 bedrooms. Previous paint peeling due to moisture.", Priority.LOW,
+                    LocalDate.now().plusDays(3), "09:00 AM - 05:00 PM");
+            createWorkOrderRecord("WO-20261005-1008", req, cust5, loc5, catMaint,
+                    "3-Bedroom Interior Repainting", req.getProblemDescription(), Priority.LOW,
+                    LocalDate.now().plusDays(3), LocalTime.of(9, 0), LocalTime.of(17, 0), techVignesh, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
+
+        // WO-1003: ASSIGNED — Srinath — Plumbing at Coimbatore (tomorrow)
+        if (!workOrderExists("WO-20261003-1003")) {
+            ServiceRequest req = createRequest(cust3, loc3, catPlumb,
+                    "Underground pipe joint leak near pump room in Coimbatore.", Priority.MEDIUM,
+                    LocalDate.now().plusDays(1), "10:00 AM - 01:00 PM");
+            createWorkOrderRecord("WO-20261003-1003", req, cust3, loc3, catPlumb,
+                    "Pump Room Pipe Joint Leak Repair", req.getProblemDescription(), Priority.MEDIUM,
+                    LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(12, 30), techSrinath, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
+
+        // ── PENDING SERVICE REQUESTS (Awaiting Dispatcher Assignment) ──────
+        if (!workOrderExists("WO-PENDING-1009")) {
+            createRequest(cust4, loc4, catApp,
+                    "Front-load washing machine displaying drain error code E03 in Madurai store.", Priority.HIGH,
+                    LocalDate.now().plusDays(1), "03:00 PM - 06:00 PM");
+        }
+
+        if (!workOrderExists("WO-PENDING-1010")) {
+            createRequest(cust7, loc7, catElec,
+                    "Factory main power distribution panel showing phase imbalance. Three-phase motor tripping frequently.", Priority.CRITICAL,
+                    LocalDate.now().plusDays(1), "08:00 AM - 11:00 AM");
+        }
+
+        if (!workOrderExists("WO-PENDING-1011")) {
+            createRequest(cust9, loc9, catMaint,
+                    "Manufacturing plant entrance door lock mechanism jammed. Security access compromised.", Priority.HIGH,
+                    LocalDate.now(), "Urgent - Any Slot");
+        }
+
+        // ── HISTORICAL / COMPLETED WORK ORDERS ────────────────────────────
+        // WO-1002: CLOSED — Karthik — Electrical in Salem (yesterday)
+        if (!workOrderExists("WO-20261001-1002")) {
+            ServiceRequest req = createRequest(cust2, loc2, catElec,
+                    "Main MCB tripping repeatedly under load in Salem showroom.", Priority.CRITICAL,
+                    LocalDate.now().minusDays(1), "02:00 PM - 04:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20261001-1002", req, cust2, loc2, catElec,
+                    "Main MCB Distribution Box Replacement", req.getProblemDescription(), Priority.CRITICAL,
+                    LocalDate.now().minusDays(1), LocalTime.of(14, 0), LocalTime.of(15, 30), techKarthik, dispatcher, WorkOrderStatus.CLOSED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(1).withHour(14).withMinute(0));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(1).withHour(15).withMinute(15));
+            wo.setVerifiedAt(LocalDateTime.now().minusDays(1).withHour(16).withMinute(0));
+            wo.setClosedAt(LocalDateTime.now().minusDays(1).withHour(16).withMinute(0));
+            wo.setWorkPerformed("Replaced faulty 32A MCB with Siemens 32A DP MCB. Balanced phase loads across phases.");
+            wo.setTotalAmount(1250.0);
+            wo.setAmountPaid(1250.0);
+            workOrderRepository.save(wo);
+            feedbackRepository.save(new CustomerFeedback(wo, cust2, 5, "Prompt emergency electrical restoration in Salem!", "EXCELLENT"));
+        }
+
+        // WO-2001: CLOSED — Vignesh — AC Service in Chennai (5 days ago)
+        if (!workOrderExists("WO-20260927-2001")) {
+            ServiceRequest req = createRequest(cust1, loc1, catAC,
+                    "Annual AC maintenance service for 3 split units in Anna Nagar residence.", Priority.MEDIUM,
+                    LocalDate.now().minusDays(5), "09:00 AM - 01:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20260927-2001", req, cust1, loc1, catAC,
+                    "Annual AC Preventive Maintenance (3 Units)", req.getProblemDescription(), Priority.MEDIUM,
+                    LocalDate.now().minusDays(5), LocalTime.of(9, 0), LocalTime.of(13, 0), techVignesh, dispatcher, WorkOrderStatus.CLOSED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(5).withHour(9).withMinute(15));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(5).withHour(12).withMinute(30));
+            wo.setVerifiedAt(LocalDateTime.now().minusDays(5).withHour(13).withMinute(0));
+            wo.setClosedAt(LocalDateTime.now().minusDays(5).withHour(13).withMinute(0));
+            wo.setWorkPerformed("Deep cleaned all 3 split AC units. Replaced air filters. Checked gas pressure — R32 at optimal levels. Electrical connections tightened.");
+            wo.setTotalAmount(1797.0);
+            wo.setAmountPaid(1797.0);
+            workOrderRepository.save(wo);
+            feedbackRepository.save(new CustomerFeedback(wo, cust1, 5, "Excellent annual maintenance. All 3 ACs running perfectly now!", "EXCELLENT"));
+        }
+
+        // WO-2002: CLOSED — Vignesh — Electrical in Tiruppur (3 days ago)
+        if (!workOrderExists("WO-20260929-2002")) {
+            ServiceRequest req = createRequest(cust7, loc7, catElec,
+                    "Factory floor lighting circuit tripping. Production line affected.", Priority.CRITICAL,
+                    LocalDate.now().minusDays(3), "08:00 AM - 11:00 AM");
+            WorkOrder wo = createWorkOrderRecord("WO-20260929-2002", req, cust7, loc7, catElec,
+                    "Factory Floor Lighting Circuit Repair", req.getProblemDescription(), Priority.CRITICAL,
+                    LocalDate.now().minusDays(3), LocalTime.of(8, 0), LocalTime.of(11, 0), techVignesh, dispatcher, WorkOrderStatus.CLOSED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(3).withHour(8).withMinute(30));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(3).withHour(10).withMinute(45));
+            wo.setVerifiedAt(LocalDateTime.now().minusDays(3).withHour(11).withMinute(0));
+            wo.setClosedAt(LocalDateTime.now().minusDays(3).withHour(11).withMinute(0));
+            wo.setWorkPerformed("Identified short circuit in DB-3 distribution board. Replaced 2 damaged MCBs. Re-routed overloaded circuit. Load tested at full capacity.");
+            wo.setTotalAmount(1850.0);
+            wo.setAmountPaid(1850.0);
+            workOrderRepository.save(wo);
+            feedbackRepository.save(new CustomerFeedback(wo, cust7, 4, "Quick response. Factory production resumed within 3 hours.", "GOOD"));
+        }
+
+        // WO-2003: COMPLETED (awaiting verification) — Dinesh — Plumbing in Namakkal (2 days ago)
+        if (!workOrderExists("WO-20260930-2003")) {
+            ServiceRequest req = createRequest(cust8, loc8, catPlumb,
+                    "Farm headquarters water pump making grinding noise. Pressure drop in irrigation lines.", Priority.HIGH,
+                    LocalDate.now().minusDays(2), "07:00 AM - 10:00 AM");
+            WorkOrder wo = createWorkOrderRecord("WO-20260930-2003", req, cust8, loc8, catPlumb,
+                    "Water Pump Motor & Pressure Line Repair", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now().minusDays(2), LocalTime.of(7, 0), LocalTime.of(10, 0), techDinesh, dispatcher, WorkOrderStatus.COMPLETED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(2).withHour(7).withMinute(15));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(2).withHour(9).withMinute(45));
+            wo.setWorkPerformed("Pump impeller worn — replaced with new brass impeller. Fixed 2 pipe joint leaks in pressure line. Pressure restored to 2.5 bar.");
+            wo.setTotalAmount(2150.0);
+            workOrderRepository.save(wo);
+        }
+
+        // WO-2004: CLOSED — Suresh — Solar in Vellore (7 days ago)
+        if (!workOrderExists("WO-20260925-2004")) {
+            ServiceRequest req = createRequest(cust10, loc10, catElec,
+                    "Rooftop solar inverter showing error code E-07. No power output since morning.", Priority.HIGH,
+                    LocalDate.now().minusDays(7), "10:00 AM - 01:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20260925-2004", req, cust10, loc10, catElec,
+                    "Solar Inverter Error Diagnosis & Repair", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now().minusDays(7), LocalTime.of(10, 0), LocalTime.of(13, 0), techSuresh, dispatcher, WorkOrderStatus.CLOSED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(7).withHour(10).withMinute(30));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(7).withHour(12).withMinute(15));
+            wo.setVerifiedAt(LocalDateTime.now().minusDays(7).withHour(13).withMinute(0));
+            wo.setClosedAt(LocalDateTime.now().minusDays(7).withHour(13).withMinute(0));
+            wo.setWorkPerformed("IGBT module in inverter failed. Replaced with compatible module. Recalibrated MPPT settings. System generating 4.2kW at peak.");
+            wo.setTotalAmount(3500.0);
+            wo.setAmountPaid(3500.0);
+            workOrderRepository.save(wo);
+            feedbackRepository.save(new CustomerFeedback(wo, cust10, 5, "Solar system back online same day! Highly skilled technician.", "EXCELLENT"));
+        }
+
+        // WO-2005: CLOSED — Praveen — Appliance in Hosur (4 days ago)
+        if (!workOrderExists("WO-20260928-2005")) {
+            ServiceRequest req = createRequest(cust9, loc9, catApp,
+                    "Industrial washing machine motor overheating. Emergency stop triggered twice today.", Priority.CRITICAL,
+                    LocalDate.now().minusDays(4), "02:00 PM - 05:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20260928-2005", req, cust9, loc9, catApp,
+                    "Industrial Washing Machine Motor Overhaul", req.getProblemDescription(), Priority.CRITICAL,
+                    LocalDate.now().minusDays(4), LocalTime.of(14, 0), LocalTime.of(17, 0), techPraveen, dispatcher, WorkOrderStatus.CLOSED);
+            wo.setStartedAt(LocalDateTime.now().minusDays(4).withHour(14).withMinute(15));
+            wo.setCompletedAt(LocalDateTime.now().minusDays(4).withHour(16).withMinute(30));
+            wo.setVerifiedAt(LocalDateTime.now().minusDays(4).withHour(17).withMinute(0));
+            wo.setClosedAt(LocalDateTime.now().minusDays(4).withHour(17).withMinute(0));
+            wo.setWorkPerformed("Motor bearings worn. Replaced both front and rear bearings. Cleaned winding coils. Replaced thermal overload relay. Motor running at rated RPM.");
+            wo.setTotalAmount(2800.0);
+            wo.setAmountPaid(2800.0);
+            workOrderRepository.save(wo);
+            feedbackRepository.save(new CustomerFeedback(wo, cust9, 5, "Critical repair done perfectly. Machine running flawlessly now.", "EXCELLENT"));
+        }
+
+        // WO-2006: ON_HOLD — Saravanan — CCTV/Security at Erode (1 day ago)
+        if (!workOrderExists("WO-20261001-2006")) {
+            ServiceRequest req = createRequest(cust6, loc6, catElec,
+                    "CCTV system DVR not recording. 4 out of 8 cameras showing no signal.", Priority.HIGH,
+                    LocalDate.now().minusDays(1), "10:00 AM - 01:00 PM");
+            WorkOrder wo = createWorkOrderRecord("WO-20261001-2006", req, cust6, loc6, catElec,
+                    "CCTV DVR & Camera Signal Restoration", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now().minusDays(1), LocalTime.of(10, 0), LocalTime.of(13, 0), techSaravanan, dispatcher, WorkOrderStatus.ON_HOLD);
+            wo.setStartedAt(LocalDateTime.now().minusDays(1).withHour(10).withMinute(15));
+            wo.setOnHoldReason("Waiting for replacement BNC connectors and RG59 cable. Expected delivery tomorrow.");
+            wo.setWorkPerformed("Diagnosed faulty BNC connectors on cameras 3, 5, 6, 7. DVR HDD health OK. Firmware updated.");
+            workOrderRepository.save(wo);
+        }
+
+        // WO-2007: ASSIGNED — Karthik — Electrical in Vellore (tomorrow)
+        if (!workOrderExists("WO-20261003-2007")) {
+            ServiceRequest req = createRequest(cust10, loc10, catElec,
+                    "Home UPS system not charging battery. Inverter switching delay noticed.", Priority.MEDIUM,
+                    LocalDate.now().plusDays(1), "02:00 PM - 05:00 PM");
+            createWorkOrderRecord("WO-20261003-2007", req, cust10, loc10, catElec,
+                    "Home UPS & Inverter Battery Diagnostic", req.getProblemDescription(), Priority.MEDIUM,
+                    LocalDate.now().plusDays(1), LocalTime.of(14, 0), LocalTime.of(17, 0), techKarthik, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
+
+        // WO-2008: ASSIGNED — Vignesh — AC Gas Refill at Hosur (2 days out)
+        if (!workOrderExists("WO-20261004-2008")) {
+            ServiceRequest req = createRequest(cust9, loc9, catAC,
+                    "Central AC unit in manufacturing plant showing low cooling output. Suspected gas leak.", Priority.HIGH,
+                    LocalDate.now().plusDays(2), "09:00 AM - 12:00 PM");
+            createWorkOrderRecord("WO-20261004-2008", req, cust9, loc9, catAC,
+                    "Central AC Gas Leak Detection & Refill", req.getProblemDescription(), Priority.HIGH,
+                    LocalDate.now().plusDays(2), LocalTime.of(9, 0), LocalTime.of(12, 0), techVignesh, dispatcher, WorkOrderStatus.ASSIGNED);
+        }
+    }
+
+    /** Helper to find the second location (loc1b) for cust1 if it exists */
+    private ServiceLocation loc1b(Customer cust1) {
+        List<ServiceLocation> locs = serviceLocationRepository.findByCustomerId(cust1.getId());
+        for (ServiceLocation loc : locs) {
+            if (loc.getLocationName().contains("Commercial")) return loc;
+        }
+        return locs.isEmpty() ? null : locs.get(0);
     }
 
     private ServiceRequest createRequest(Customer cust, ServiceLocation loc, ServiceCategory cat, String desc, Priority prio, LocalDate prefDate, String timeSlot) {

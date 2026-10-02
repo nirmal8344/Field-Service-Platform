@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
+export default function Sidebar({ activeTab, setActiveTab, isMobileOpen, onCloseMobile }) {
   const { isCustomer, isDispatcher, isTechnician, isAdmin, logout } = useAuth();
 
   let navItems = [];
@@ -76,108 +76,153 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     ];
   }
 
+  const handleTabClick = (id) => {
+    setActiveTab(id);
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
   return (
-    <aside style={{
-      width: '240px',
-      background: '#ffffff',
-      borderRight: '1px solid #e4e4e7',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: '24px 16px',
-      minHeight: 'calc(100vh - 64px)',
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div style={{
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          color: '#71717a',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          padding: '0 12px 10px 12px'
-        }}>
-          Menu
-        </div>
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {isMobileOpen && (
+        <div 
+          className="sidebar-overlay-backdrop"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
 
-        {navItems.map(item => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '9px 12px',
-                borderRadius: '10px',
-                background: isActive ? '#09090b' : 'transparent',
-                border: 'none',
-                color: isActive ? '#ffffff' : '#52525b',
-                fontWeight: isActive ? 700 : 500,
-                fontSize: '0.84rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontFamily: "'Inter', sans-serif",
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = '#f4f4f5';
-                  e.currentTarget.style.color = '#09090b';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#52525b';
-                }
-              }}
-            >
-              <Icon size={17} color={isActive ? '#ffffff' : '#71717a'} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Logout Action */}
-      <button
-        onClick={logout}
+      <aside 
+        className={`app-sidebar ${isMobileOpen ? 'mobile-open' : ''}`}
         style={{
+          width: '240px',
+          background: '#ffffff',
+          borderRight: '1px solid #e4e4e7',
           display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '11px 14px',
-          borderRadius: '12px',
-          background: 'transparent',
-          border: '1.5px solid #e4e4e7',
-          color: '#09090b',
-          fontWeight: 600,
-          fontSize: '0.86rem',
-          cursor: 'pointer',
-          textAlign: 'left',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '24px 16px',
+          minHeight: 'calc(100vh - 64px)',
           fontFamily: "'Inter', sans-serif",
-          transition: 'all 0.15s ease',
-          marginTop: '16px'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#fef2f2';
-          e.currentTarget.style.borderColor = '#fca5a5';
-          e.currentTarget.style.color = '#dc2626';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.borderColor = '#e4e4e7';
-          e.currentTarget.style.color = '#09090b';
+          boxSizing: 'border-box'
         }}
       >
-        <LogOut size={16} />
-        <span>Sign Out</span>
-      </button>
-    </aside>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            color: '#71717a',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            padding: '0 12px 10px 12px'
+          }}>
+            Menu
+          </div>
+
+          {navItems.map(item => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabClick(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  background: isActive ? '#09090b' : 'transparent',
+                  border: 'none',
+                  color: isActive ? '#ffffff' : '#52525b',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: "'Inter', sans-serif",
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = '#f4f4f5';
+                    e.currentTarget.style.color = '#09090b';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#52525b';
+                  }
+                }}
+              >
+                <Icon size={17} color={isActive ? '#ffffff' : '#71717a'} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Logout Action */}
+        <button
+          onClick={() => {
+            if (onCloseMobile) onCloseMobile();
+            logout();
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '11px 14px',
+            borderRadius: '12px',
+            background: 'transparent',
+            border: '1.5px solid #e4e4e7',
+            color: '#09090b',
+            fontWeight: 600,
+            fontSize: '0.86rem',
+            cursor: 'pointer',
+            textAlign: 'left',
+            fontFamily: "'Inter', sans-serif",
+            transition: 'all 0.15s ease',
+            marginTop: '16px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#fef2f2';
+            e.currentTarget.style.borderColor = '#fca5a5';
+            e.currentTarget.style.color = '#dc2626';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.borderColor = '#e4e4e7';
+            e.currentTarget.style.color = '#09090b';
+          }}
+        >
+          <LogOut size={16} />
+          <span>Sign Out</span>
+        </button>
+      </aside>
+
+      <style>{`
+        @media (max-width: 1024px) {
+          .app-sidebar {
+            position: fixed !important;
+            top: 64px !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            height: calc(100vh - 64px) !important;
+            z-index: 999 !important;
+            transform: translateX(-100%);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+          }
+          .app-sidebar.mobile-open {
+            transform: translateX(0) !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }
+

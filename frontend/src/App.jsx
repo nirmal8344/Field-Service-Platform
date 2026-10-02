@@ -22,6 +22,7 @@ function MainLayout() {
   const [activeTabState, setActiveTabState] = useState(null);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [preselectedCategoryId, setPreselectedCategoryId] = useState(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -66,16 +67,29 @@ function MainLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
-      {/* Real Authenticated Navbar */}
-      <Navbar onOpenBookModal={() => handleOpenBookModal()} />
+      {/* Real Authenticated Navbar with Mobile Hamburger */}
+      <Navbar 
+        onOpenBookModal={() => handleOpenBookModal()}
+        isMobileMenuOpen={isMobileSidebarOpen}
+        onToggleMobileMenu={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+      />
 
       {/* Main Workspace */}
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Scoped Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTabState} />
+      <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
+        {/* Scoped Responsive Sidebar */}
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => {
+            setActiveTabState(tab);
+            setIsMobileSidebarOpen(false);
+          }}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
 
-        {/* Center Canvas */}
-        <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)', background: '#f4f4f6' }}>
+        {/* Center Responsive Canvas */}
+        <main className="main-content-canvas">
+
           
           {/* CUSTOMER VIEWS */}
           {isCustomer && (

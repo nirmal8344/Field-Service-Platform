@@ -305,3 +305,122 @@ code, pre {
 .form-input::placeholder, .form-textarea::placeholder {
   color: var(--text-muted);
 }
+
+/* =========================================================
+   RESPONSIVE DESIGN SYSTEM & BREAKPOINTS
+   Mobile (<=768px), Tablet (769px-1024px), Laptop/Desktop (>1024px)
+   ========================================================= */
+
+/* Main canvas container */
+.main-content-canvas {
+  flex: 1;
+  padding: 24px 32px;
+  overflow-y: auto;
+  max-height: calc(100vh - 64px);
+  background: #f4f4f6;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .main-content-canvas {
+    padding: 18px 20px;
+    max-height: calc(100vh - 60px);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content-canvas {
+    padding: 14px 12px;
+    max-height: calc(100vh - 56px);
+  }
+}
+
+/* Responsive Table Wrapper & Overflow */
+.responsive-table-container,
+.table-wrapper,
+div:has(> table) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/* Mobile Sidebar Drawer Overlay */
+.sidebar-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 998;
+  transition: opacity 0.25s ease;
+}
+
+/* Responsive Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.modal-container {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 600px;
+  padding: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .modal-container {
+    padding: 18px 16px;
+    border-radius: 16px;
+    max-height: 92vh;
+  }
+}
+
+/* Responsive Grid Helpers */
+.grid-responsive-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .grid-responsive-cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* Responsive Header */
+@media (max-width: 768px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  .mobile-compact {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+  }
+}
+

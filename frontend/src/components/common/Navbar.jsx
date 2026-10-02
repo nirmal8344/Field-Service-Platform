@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { 
   Bell, 
-  Wrench
+  Wrench,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 import { useNotifications } from '../../context/useNotifications';
 
-export default function Navbar({ onOpenBookModal }) {
+export default function Navbar({ onOpenBookModal, isMobileMenuOpen, onToggleMobileMenu }) {
   const { currentUser, isCustomer } = useAuth();
   const { notifications, unreadCount, markAllNotificationsRead } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -22,17 +24,38 @@ export default function Navbar({ onOpenBookModal }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 24px',
+      padding: '0 20px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
       fontFamily: "'Inter', sans-serif"
     }}>
-      {/* Brand */}
+      {/* Brand & Mobile Hamburger */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Mobile Hamburger Toggle Button */}
+        <button
+          onClick={onToggleMobileMenu}
+          className="mobile-nav-toggle"
+          aria-label="Toggle Navigation Menu"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#09090b',
+            cursor: 'pointer',
+            padding: '6px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background 0.15s ease'
+          }}
+        >
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+
         <div style={{
-          width: '36px',
-          height: '36px',
+          width: '34px',
+          height: '34px',
           borderRadius: '10px',
           background: '#09090b',
           display: 'flex',
@@ -40,17 +63,18 @@ export default function Navbar({ onOpenBookModal }) {
           justifyContent: 'center',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
         }}>
-          <Wrench size={18} color="#ffffff" strokeWidth={2.4} />
+          <Wrench size={17} color="#ffffff" strokeWidth={2.4} />
         </div>
         <div style={{
           fontWeight: 800,
-          fontSize: '1.2rem',
+          fontSize: '1.15rem',
           letterSpacing: '-0.03em',
           color: '#09090b'
         }}>
           FieldHub
         </div>
       </div>
+
 
       {/* Right Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -176,22 +200,43 @@ export default function Navbar({ onOpenBookModal }) {
             justifyContent: 'center',
             fontSize: '0.82rem',
             fontWeight: 800,
-            letterSpacing: '0.02em'
+            letterSpacing: '0.02em',
+            flexShrink: 0
           }}>
             {initials}
           </div>
 
-          <div style={{ lineHeight: 1.2, display: 'flex', flexDirection: 'column' }}>
+          <div className="navbar-user-info" style={{ lineHeight: 1.2, display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#09090b' }}>
               {displayName}
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#71717a', fontWeight: 500 }}>
+            <div className="navbar-user-email" style={{ fontSize: '0.72rem', color: '#71717a', fontWeight: 500 }}>
               {currentUser?.email || 'customer@fieldhub.com'}
             </div>
           </div>
         </div>
 
       </div>
+
+      <style>{`
+        .mobile-nav-toggle {
+          display: none;
+        }
+        @media (max-width: 1024px) {
+          .mobile-nav-toggle {
+            display: flex !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .navbar-user-email {
+            display: none !important;
+          }
+          .navbar-user-info {
+            display: none !important;
+          }
+        }
+      `}</style>
     </header>
   );
 }
+
