@@ -25,8 +25,17 @@ public class NotificationService {
 
     public void createNotification(User user, String title, String message, NotificationType type, String linkUrl) {
         if (user == null) return;
-        InAppNotification notification = new InAppNotification(user, title, message, type, linkUrl);
-        notificationRepository.save(notification);
+        try {
+            InAppNotification notification = new InAppNotification(user, title, message, type, linkUrl);
+            notificationRepository.save(notification);
+        } catch (Exception e) {
+            try {
+                InAppNotification fallback = new InAppNotification(user, title, message, NotificationType.SYSTEM, linkUrl);
+                notificationRepository.save(fallback);
+            } catch (Exception ignored) {
+                System.err.println("Failed to persist notification: " + e.getMessage());
+            }
+        }
     }
 
     public void notifyAdmins(String title, String message, NotificationType type, String linkUrl) {
