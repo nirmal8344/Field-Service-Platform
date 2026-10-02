@@ -25,7 +25,7 @@ function MainLayout() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: '#38bdf8', fontWeight: 700 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: '#09090b', fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>
         Loading FieldHub Platform...
       </div>
     );
@@ -35,14 +35,28 @@ function MainLayout() {
     return <AuthPage />;
   }
 
-  // Derive activeTab if not manually set by user
+  // Derive default tab for role
+  const getDefaultTabForRole = () => {
+    if (isCustomer) return 'customer-home';
+    if (isDispatcher) return 'dispatcher-dashboard';
+    if (isTechnician) return 'tech-dashboard';
+    if (isAdmin) return 'admin-overview';
+    return 'customer-home';
+  };
+
+  // Derive activeTab strictly validated against current authenticated role
+  const isCustomerTab = activeTabState?.startsWith('customer-');
+  const isDispatcherTab = activeTabState?.startsWith('dispatcher-');
+  const isTechnicianTab = activeTabState?.startsWith('tech-');
+  const isAdminTab = activeTabState?.startsWith('admin-');
+
   let activeTab = activeTabState;
-  if (!activeTab) {
-    if (isCustomer) activeTab = 'customer-home';
-    else if (isDispatcher) activeTab = 'dispatcher-dashboard';
-    else if (isTechnician) activeTab = 'tech-dashboard';
-    else if (isAdmin) activeTab = 'admin-overview';
-    else activeTab = 'customer-home';
+  if (!activeTab ||
+      (isCustomer && !isCustomerTab) ||
+      (isDispatcher && !isDispatcherTab) ||
+      (isTechnician && !isTechnicianTab) ||
+      (isAdmin && !isAdminTab)) {
+    activeTab = getDefaultTabForRole();
   }
 
   const handleOpenBookModal = (categoryId = null) => {
@@ -61,63 +75,71 @@ function MainLayout() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTabState} />
 
         {/* Center Canvas */}
-        <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)', background: (isCustomer || isAdmin || isDispatcher || isTechnician) ? '#f4f4f6' : 'var(--bg-primary)' }}>
+        <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)', background: '#f4f4f6' }}>
           
           {/* CUSTOMER VIEWS */}
-          {activeTab === 'customer-home' && (
-            <CustomerHomeView
-              onOpenBookModal={handleOpenBookModal}
-              onSelectCategory={(cat) => handleOpenBookModal(cat.id)}
-              onNavigateToRequests={() => setActiveTabState('customer-requests')}
-            />
+          {isCustomer && (
+            <>
+              {(activeTab === 'customer-home' || activeTab === 'customer-new-request') && (
+                <CustomerHomeView
+                  onOpenBookModal={handleOpenBookModal}
+                  onSelectCategory={(cat) => handleOpenBookModal(cat.id)}
+                  onNavigateToRequests={() => setActiveTabState('customer-requests')}
+                />
+              )}
+
+              {activeTab === 'customer-requests' && (
+                <CustomerRequestsView
+                  viewMode="MY_REQUESTS"
+                  onOpenBookModal={() => handleOpenBookModal()}
+                />
+              )}
+
+              {activeTab === 'customer-active-services' && (
+                <CustomerRequestsView
+                  viewMode="ACTIVE_SERVICES"
+                  onOpenBookModal={() => handleOpenBookModal()}
+                />
+              )}
+
+              {activeTab === 'customer-history' && (
+                <CustomerRequestsView
+                  viewMode="SERVICE_HISTORY"
+                  onOpenBookModal={() => handleOpenBookModal()}
+                />
+              )}
+
+              {activeTab === 'customer-notifications' && (
+                <CustomerRequestsView
+                  viewMode="NOTIFICATIONS"
+                  onOpenBookModal={() => handleOpenBookModal()}
+                />
+              )}
+
+              {(activeTab === 'customer-locations' || activeTab === 'customer-profile') && (
+                <CustomerLocationsView />
+              )}
+            </>
           )}
 
-          {activeTab === 'customer-new-request' && (
-            <div style={{ padding: '20px 0' }}>
-              <CustomerHomeView
-                onOpenBookModal={handleOpenBookModal}
-                onSelectCategory={(cat) => handleOpenBookModal(cat.id)}
-                onNavigateToRequests={() => setActiveTabState('customer-requests')}
-              />
-            </div>
-          )}
-
-          {(activeTab === 'customer-requests' || activeTab === 'customer-active-services' || activeTab === 'customer-history') && (
-            <CustomerRequestsView
-              initialTab={activeTab === 'customer-history' ? 'COMPLETED' : activeTab === 'customer-active-services' ? 'IN_PROGRESS' : 'ALL'}
-              onOpenBookModal={() => handleOpenBookModal()}
-            />
-          )}
-
-          {(activeTab === 'customer-locations' || activeTab === 'customer-profile') && (
-            <CustomerLocationsView />
-          )}
-
-          {activeTab === 'customer-notifications' && (
-            <CustomerRequestsView
-              initialTab="ALL"
-              onOpenBookModal={() => handleOpenBookModal()}
-            />
-          )}
-
-          {/* DISPATCHER VIEWS (Matches all dispatcher-* tabs) */}
-          {(activeTab?.startsWith('dispatcher-') || activeTab === 'dispatcher-dashboard') && (
+          {/* DISPATCHER VIEWS */}
+          {isDispatcher && (
             <DispatcherDashboardView 
               currentTab={activeTab}
               onTabChange={setActiveTabState}
             />
           )}
 
-          {/* TECHNICIAN VIEWS (Matches all tech-* tabs) */}
-          {(activeTab?.startsWith('tech-') || activeTab === 'tech-dashboard') && (
+          {/* TECHNICIAN VIEWS */}
+          {isTechnician && (
             <TechnicianDashboardView 
               currentTab={activeTab}
               onTabChange={setActiveTabState}
             />
           )}
 
-          {/* ADMIN VIEWS (Matches all admin-* tabs) */}
-          {(activeTab?.startsWith('admin-') || activeTab === 'admin-dashboard') && (
+          {/* ADMIN VIEWS */}
+          {isAdmin && (
             <AdminDashboardView 
               currentTab={activeTab}
               onTabChange={setActiveTabState}
@@ -128,9 +150,9 @@ function MainLayout() {
       </div>
 
       {/* Real Customer Service Booking Modal */}
-      {(isBookModalOpen || activeTab === 'customer-new-request') && (
+      {(isBookModalOpen || (isCustomer && activeTab === 'customer-new-request')) && (
         <CreateServiceRequestModal
-          isOpen={isBookModalOpen || activeTab === 'customer-new-request'}
+          isOpen={isBookModalOpen || (isCustomer && activeTab === 'customer-new-request')}
           onClose={() => {
             setIsBookModalOpen(false);
             if (activeTab === 'customer-new-request') {

@@ -1,4 +1,10 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const BASE_URL = rawBaseUrl.replace(/\/+$/, '');
+
+function getUrl(endpoint) {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${BASE_URL}${cleanEndpoint}`;
+}
 
 const TOKEN_KEY = 'FIELD_SERVICE_AUTH_TOKEN';
 const USER_KEY = 'FIELD_SERVICE_AUTH_USER';
@@ -38,7 +44,7 @@ async function request(endpoint, options = {}) {
   const config = { ...options, headers };
 
   try {
-    const res = await fetch(`${BASE_URL}${endpoint}`, config);
+    const res = await fetch(getUrl(endpoint), config);
     if (!res.ok) {
       let errorMsg = `HTTP ${res.status}: ${res.statusText}`;
       try {
@@ -63,7 +69,7 @@ async function request(endpoint, options = {}) {
 export const api = {
   async getHealth() {
     try {
-      const res = await fetch(`${BASE_URL}/health`);
+      const res = await fetch(getUrl('/health'));
       if (res.ok) return await res.json();
       return { status: 'OFFLINE' };
     } catch { return { status: 'OFFLINE' }; }
@@ -190,7 +196,7 @@ export const api = {
     const token = getStoredToken();
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${BASE_URL}/upload/photo`, {
+    const res = await fetch(getUrl('/upload/photo'), {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData
@@ -257,21 +263,21 @@ export const api = {
 
   async exportWorkOrdersCSV() {
     const token = getStoredToken();
-    const res = await fetch(`${BASE_URL}/reports/work-orders/csv`, {
+    const res = await fetch(getUrl('/reports/work-orders/csv'), {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
     return await res.text();
   },
   async exportTechniciansCSV() {
     const token = getStoredToken();
-    const res = await fetch(`${BASE_URL}/reports/technicians/csv`, {
+    const res = await fetch(getUrl('/reports/technicians/csv'), {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
     return await res.text();
   },
   async exportInventoryCSV() {
     const token = getStoredToken();
-    const res = await fetch(`${BASE_URL}/reports/inventory/csv`, {
+    const res = await fetch(getUrl('/reports/inventory/csv'), {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
     return await res.text();

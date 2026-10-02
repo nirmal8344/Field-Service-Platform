@@ -12,7 +12,11 @@ import {
   ChevronRight, 
   Calendar,
   Search,
-  Plus
+  Plus,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/useAuth';
@@ -23,19 +27,21 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [categories, setCategories] = useState([]);
-  const [activeRequests, setActiveRequests] = useState([]);
+  const [allRequests, setAllRequests] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const displayName = currentUser?.fullName || 'NIRMALKUMAR R';
+  const displayName = currentUser?.fullName || 'Valued Customer';
 
   useEffect(() => {
     let isMounted = true;
     const loadCustomerData = async () => {
       try {
-        const [locs, cats, reqs] = await Promise.all([
-          api.getServiceLocations(),
-          api.getCategories(),
-          api.getMyServiceRequests()
+        const [locs, cats, reqs, wos] = await Promise.all([
+          api.getServiceLocations().catch(() => []),
+          api.getCategories().catch(() => []),
+          api.getMyServiceRequests().catch(() => []),
+          api.getAllWorkOrders().catch(() => [])
         ]);
         if (!isMounted) return;
         setLocations(locs || []);
@@ -43,7 +49,8 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
           setSelectedLocation(locs.find(l => l.defaultLocation) || locs[0]);
         }
         setCategories(cats || []);
-        setActiveRequests(reqs || []);
+        setAllRequests(reqs || []);
+        setWorkOrders(wos || []);
       } catch (err) {
         console.error('Error loading customer dashboard data:', err);
       }
@@ -54,6 +61,11 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
       isMounted = false;
     };
   }, []);
+
+  const totalRequests = allRequests.length;
+  const pendingRequests = allRequests.filter(r => r.status === 'PENDING').length;
+  const activeServices = allRequests.filter(r => ['ASSIGNED', 'SCHEDULED', 'DISPATCHED', 'IN_PROGRESS', 'ON_HOLD'].includes(r.status)).length;
+  const completedServices = allRequests.filter(r => ['COMPLETED', 'CUSTOMER_VERIFIED', 'CLOSED'].includes(r.status)).length;
 
   const categoryIconMap = {
     'AC Repair': { icon: Wind, desc: 'Jet pump wash, gas recharge & maintenance' },
@@ -134,14 +146,125 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
                 </option>
               ))}
               {locations.length === 0 && (
-                <option value="" style={{ background: '#ffffff', color: '#09090b' }}>Primary Facility</option>
+                <option value="" style={{ background: '#ffffff', color: '#09090b' }}>Default Service Address</option>
               )}
             </select>
           </div>
         </div>
       </div>
 
-      {/* 2. Booking Hero CTA Card (Solid Black in Reference Style) */}
+      {/* 2. KPI Metrics Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '14px'
+      }}>
+        <div 
+          onClick={() => onNavigateToRequests && onNavigateToRequests()}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e4e4e7',
+            borderRadius: '18px',
+            padding: '18px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = '#09090b'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e4e4e7'}
+        >
+          <div>
+            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#71717a', textTransform: 'uppercase' }}>Total Bookings</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#09090b', marginTop: '4px' }}>{totalRequests}</div>
+          </div>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#09090b', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={20} />
+          </div>
+        </div>
+
+        <div 
+          onClick={() => onNavigateToRequests && onNavigateToRequests()}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e4e4e7',
+            borderRadius: '18px',
+            padding: '18px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = '#09090b'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e4e4e7'}
+        >
+          <div>
+            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#71717a', textTransform: 'uppercase' }}>Pending Review</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ea580c', marginTop: '4px' }}>{pendingRequests}</div>
+          </div>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fff7ed', color: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertCircle size={20} />
+          </div>
+        </div>
+
+        <div 
+          onClick={() => onNavigateToRequests && onNavigateToRequests()}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e4e4e7',
+            borderRadius: '18px',
+            padding: '18px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = '#09090b'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e4e4e7'}
+        >
+          <div>
+            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#71717a', textTransform: 'uppercase' }}>Active Services</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#2563eb', marginTop: '4px' }}>{activeServices}</div>
+          </div>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Clock size={20} />
+          </div>
+        </div>
+
+        <div 
+          onClick={() => onNavigateToRequests && onNavigateToRequests()}
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e4e4e7',
+            borderRadius: '18px',
+            padding: '18px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = '#09090b'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e4e4e7'}
+        >
+          <div>
+            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#71717a', textTransform: 'uppercase' }}>Completed & Verified</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#16a34a', marginTop: '4px' }}>{completedServices}</div>
+          </div>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircle2 size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Booking Hero CTA Card */}
       <div style={{
         background: '#09090b',
         borderRadius: '24px',
@@ -224,16 +347,16 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
             fontWeight: 800,
             fontSize: '1.2rem'
           }}>
-            {activeRequests.length}
+            {activeServices}
           </div>
           <div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>Active Requests</div>
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>Active Services</div>
             <div style={{ fontSize: '0.74rem', color: '#a1a1aa' }}>In schedule & progress</div>
           </div>
         </div>
       </div>
 
-      {/* 3. Service Categories Grid */}
+      {/* 4. Service Categories Grid */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <div>
@@ -351,8 +474,8 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
         </div>
       </div>
 
-      {/* 4. Recent Service Requests / Bookings (from PostgreSQL) */}
-      {activeRequests.length > 0 && (
+      {/* 5. Recent Service Requests / Bookings */}
+      {allRequests.length > 0 && (
         <div style={{
           background: '#ffffff',
           border: '1px solid #e4e4e7',
@@ -366,7 +489,7 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 style={{ fontWeight: 800, fontSize: '1.1rem', color: '#09090b', letterSpacing: '-0.02em', margin: 0 }}>
-                Recent Service Requests ({activeRequests.length})
+                Recent Service Requests ({allRequests.length})
               </h3>
               <p style={{ fontSize: '0.78rem', color: '#71717a', margin: '2px 0 0 0' }}>
                 Track technician assignment and real-time dispatch progress
@@ -392,65 +515,62 @@ export default function CustomerHomeView({ onOpenBookModal, onSelectCategory, on
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {activeRequests.slice(0, 4).map(req => (
-              <div
-                key={req.id}
-                onClick={() => onNavigateToRequests && onNavigateToRequests()}
-                style={{
-                  background: '#f9fafb',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '14px',
-                  padding: '14px 18px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#09090b'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e4e4e7'}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#09090b' }}>
+            {allRequests.slice(0, 4).map(req => {
+              const matchedWo = workOrders.find(wo => wo.serviceRequestId === req.id);
+              const status = matchedWo ? matchedWo.status : req.status;
+
+              return (
+                <div
+                  key={req.id}
+                  onClick={() => onNavigateToRequests && onNavigateToRequests()}
+                  style={{
+                    background: '#f9fafb',
+                    border: '1px solid #e4e4e7',
+                    borderRadius: '14px',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f4f4f5'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#f9fafb'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#09090b' }}>
                       {req.requestNumber}
-                    </span>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      background: '#09090b',
-                      color: '#ffffff'
-                    }}>
+                    </div>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#09090b', color: '#ffffff' }}>
                       {req.categoryName}
                     </span>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      background: req.status === 'COMPLETED' ? '#dcfce7' : req.status === 'IN_PROGRESS' ? '#dbeafe' : '#f4f4f5',
-                      color: req.status === 'COMPLETED' ? '#166534' : req.status === 'IN_PROGRESS' ? '#1e40af' : '#18181b',
-                      border: '1px solid #e4e4e7'
-                    }}>
-                      {req.status}
+                    <span style={{ fontSize: '0.84rem', color: '#52525b', fontWeight: 500 }}>
+                      {req.problemDescription}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.84rem', color: '#3f3f46', marginTop: '4px', fontWeight: 500 }}>
-                    {req.problemDescription}
-                  </div>
-                </div>
 
-                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#71717a' }}>
-                    <Calendar size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
-                    {req.preferredDate} ({req.preferredTimeSlot})
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <span style={{ fontSize: '0.76rem', color: '#71717a' }}>
+                      <Calendar size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+                      {req.preferredDate}
+                    </span>
+                    <span style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: '9999px',
+                      background: status === 'COMPLETED' ? '#dcfce7' : status === 'IN_PROGRESS' ? '#dbeafe' : '#f4f4f5',
+                      color: status === 'COMPLETED' ? '#166534' : status === 'IN_PROGRESS' ? '#1e40af' : '#18181b',
+                      border: '1px solid #e4e4e7'
+                    }}>
+                      {status}
+                    </span>
                   </div>
-                  <ChevronRight size={16} color="#71717a" />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

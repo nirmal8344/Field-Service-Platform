@@ -19,7 +19,7 @@ export default function CreateServiceRequestModal({ isOpen, onClose, onCreated, 
   const [serviceTypes, setServiceTypes] = useState([]);
   const [locations, setLocations] = useState([]);
 
-  const [categoryId, setCategoryId] = useState(preselectedCategoryId || '');
+  const [categoryId, setCategoryId] = useState('');
   const [serviceTypeId, setServiceTypeId] = useState('');
   const [serviceLocationId, setServiceLocationId] = useState('');
   const [problemDescription, setProblemDescription] = useState('');
@@ -38,21 +38,37 @@ export default function CreateServiceRequestModal({ isOpen, onClose, onCreated, 
     const loadFormData = async () => {
       try {
         const [cats, locs] = await Promise.all([
-          api.getCategories(),
-          api.getServiceLocations()
+          api.getCategories().catch(() => []),
+          api.getServiceLocations().catch(() => [])
         ]);
         if (!isMounted) return;
 
-        setCategories(cats || []);
-        setLocations(locs || []);
+        const catList = cats || [];
+        const locList = locs || [];
+        setCategories(catList);
+        setLocations(locList);
 
-        if (locs && locs.length > 0 && !serviceLocationId) {
-          const def = locs.find(l => l.defaultLocation) || locs[0];
+        const targetCatId = preselectedCategoryId || (catList.length > 0 ? catList[0].id : '');
+        setCategoryId(targetCatId);
+
+        if (locList.length > 0) {
+          const def = locList.find(l => l.defaultLocation) || locList[0];
           setServiceLocationId(def.id);
         }
 
-        if (cats && cats.length > 0 && !categoryId) {
-          setCategoryId(preselectedCategoryId || cats[0].id);
+        if (targetCatId) {
+          const catFound = catList.find(c => c.id === Number(targetCatId));
+          if (catFound && catFound.serviceTypes && catFound.serviceTypes.length > 0) {
+            setServiceTypes(catFound.serviceTypes);
+          } else {
+            api.getTypesByCategory(targetCatId)
+              .then(types => {
+                if (isMounted) setServiceTypes(types || []);
+              })
+              .catch(() => {
+                if (isMounted) setServiceTypes([]);
+              });
+          }
         }
       } catch (err) {
         console.error('Failed loading form data:', err);
@@ -63,24 +79,20 @@ export default function CreateServiceRequestModal({ isOpen, onClose, onCreated, 
     return () => {
       isMounted = false;
     };
-  }, [isOpen, categoryId, preselectedCategoryId, serviceLocationId]);
+  }, [isOpen, preselectedCategoryId]);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (categoryId) {
-      api.getTypesByCategory(categoryId)
-        .then(types => {
-          if (isMounted) setServiceTypes(types || []);
-        })
-        .catch(() => {
-          if (isMounted) setServiceTypes([]);
-        });
+  const handleCategoryChange = (newCatId) => {
+    setCategoryId(newCatId);
+    setServiceTypeId('');
+    const catFound = categories.find(c => c.id === Number(newCatId));
+    if (catFound && catFound.serviceTypes && catFound.serviceTypes.length > 0) {
+      setServiceTypes(catFound.serviceTypes);
+    } else {
+      api.getTypesByCategory(newCatId)
+        .then(types => setServiceTypes(types || []))
+        .catch(() => setServiceTypes([]));
     }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [categoryId]);
+  };
 
   if (!isOpen) return null;
 
@@ -220,10 +232,7 @@ export default function CreateServiceRequestModal({ isOpen, onClose, onCreated, 
               <select
                 required
                 value={categoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setServiceTypeId('');
-                }}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 style={{
                   width: '100%',
                   height: '42px',
